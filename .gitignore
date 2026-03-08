@@ -1,0 +1,7 @@
+.env.local
+.env
+firebase-service-account.json
+node_modules
+.next
+dist
+*.tsbuildinfo
