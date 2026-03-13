@@ -33,7 +33,27 @@ export const LA_LIGA_STANDINGS: StandingRow[] = [
 
 const STANDINGS: Record<string, StandingRow[]> = {
   EPL: EPL_STANDINGS, LA_LIGA: LA_LIGA_STANDINGS,
-  BUNDESLIGA: [], SERIE_A: [], LIGUE_1: [], UCL: [],
+  BUNDESLIGA: [
+    { rank:1, team:'Bayern Munich',  teamId:'BMU', pts:62, w:19, d:5, l:3,  gd:'+41', form:'WWWWW', isUserClub:true,  isTopFour:true,  isRelegation:false, isWatch:false },
+    { rank:2, team:'Leverkusen',     teamId:'LEV', pts:54, w:16, d:6, l:5,  gd:'+28', form:'WWDWW', isUserClub:true,  isTopFour:true,  isRelegation:false, isWatch:false },
+    { rank:3, team:'Dortmund',       teamId:'BVB', pts:48, w:14, d:6, l:7,  gd:'+12', form:'WLWWW', isUserClub:true,  isTopFour:true,  isRelegation:false, isWatch:false },
+    { rank:4, team:'Leipzig',        teamId:'RBL', pts:44, w:12, d:8, l:7,  gd:'+8',  form:'DWWDW', isUserClub:false, isTopFour:true,  isRelegation:false, isWatch:false },
+    { rank:5, team:'Frankfurt',      teamId:'SGE', pts:40, w:11, d:7, l:9,  gd:'+4',  form:'WDLWL', isUserClub:false, isTopFour:false, isRelegation:false, isWatch:false },
+  ],
+  SERIE_A: [
+    { rank:1, team:'Napoli',         teamId:'NAP', pts:58, w:17, d:7, l:4,  gd:'+22', form:'WWWDW', isUserClub:false, isTopFour:true,  isRelegation:false, isWatch:false },
+    { rank:2, team:'Inter',          teamId:'INT', pts:54, w:16, d:6, l:5,  gd:'+30', form:'WWWDW', isUserClub:true,  isTopFour:true,  isRelegation:false, isWatch:false },
+    { rank:3, team:'Atalanta',       teamId:'ATA', pts:50, w:14, d:8, l:5,  gd:'+18', form:'WDWWW', isUserClub:false, isTopFour:true,  isRelegation:false, isWatch:false },
+    { rank:4, team:'Juventus',       teamId:'JUV', pts:49, w:14, d:7, l:6,  gd:'+15', form:'WWLWW', isUserClub:true,  isTopFour:true,  isRelegation:false, isWatch:false },
+    { rank:5, team:'AC Milan',       teamId:'ACM', pts:44, w:12, d:8, l:7,  gd:'+8',  form:'WWWWW', isUserClub:true,  isTopFour:false, isRelegation:false, isWatch:false },
+  ],
+  LIGUE_1: [
+    { rank:1, team:'Marseille',      teamId:'OLM', pts:60, w:18, d:6, l:4,  gd:'+26', form:'WWWWW', isUserClub:false, isTopFour:true,  isRelegation:false, isWatch:false },
+    { rank:2, team:'PSG',            teamId:'PSG', pts:57, w:17, d:6, l:5,  gd:'+32', form:'WWWWL', isUserClub:true,  isTopFour:true,  isRelegation:false, isWatch:false },
+    { rank:3, team:'Monaco',         teamId:'ASM', pts:55, w:16, d:7, l:5,  gd:'+24', form:'WWWWW', isUserClub:true,  isTopFour:true,  isRelegation:false, isWatch:false },
+    { rank:4, team:'Lille',          teamId:'LIL', pts:48, w:14, d:6, l:8,  gd:'+12', form:'LWWDW', isUserClub:false, isTopFour:true,  isRelegation:false, isWatch:false },
+  ],
+  UCL: [],
 }
 
 function zoneClass(row: StandingRow): string {
