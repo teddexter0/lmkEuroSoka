@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://lmkeurosoka.vercel.app'),
   title: 'lmkEuroSoka',
   description: 'Personal European Football Intelligence — EPL, La Liga, UCL and beyond.',
   openGraph: {

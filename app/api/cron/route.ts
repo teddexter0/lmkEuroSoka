@@ -4,6 +4,7 @@ import { generateAndUpsertStories } from '@/lib/gemini'
 import { currentWeekLabel } from '@/lib/utils'
 
 export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 export const maxDuration = 300
 
 export async function GET(req: Request) {

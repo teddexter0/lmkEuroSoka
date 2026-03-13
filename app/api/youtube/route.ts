@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 
+export const dynamic = 'force-dynamic'
+
 const CBS_CHANNEL = 'UCcJ6L_EM3H3NLZE7DJDe1g'
 const PLAYLIST_URL = 'https://www.youtube.com/playlist?list=PLEbJmiPaOw7PfMkNcJKLPJm08rLUFhpPM'
 
