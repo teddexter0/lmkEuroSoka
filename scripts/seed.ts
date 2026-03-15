@@ -1,5 +1,6 @@
 import * as admin from 'firebase-admin'
 import { TEAMS_SEED, FIXTURES_SEED, STORIES_SEED, PLAYER_STATS_SEED, WEEKLY_DIGEST_SEED } from '../lib/seed-data'
+import { currentWeekLabel } from '../lib/utils'
 
 // Load env manually for ts-node
 import * as dotenv from 'dotenv'
@@ -18,7 +19,8 @@ if (!admin.apps.length) {
 const db = admin.firestore()
 
 async function seed() {
-  console.log('🌱 Seeding lmkEuroSoka Firebase...\n')
+  const week = currentWeekLabel()
+  console.log(`🌱 Seeding lmkEuroSoka Firebase for week: ${week}\n`)
 
   console.log('📋 Seeding teams...')
   for (const team of TEAMS_SEED) {
@@ -30,6 +32,7 @@ async function seed() {
   for (const fixture of FIXTURES_SEED) {
     await db.collection('fixtures').doc(fixture.id).set({
       ...fixture,
+      weekLabel: week,
       matchDate: admin.firestore.Timestamp.fromDate(new Date(fixture.matchDate as string)),
     })
   }
@@ -37,8 +40,11 @@ async function seed() {
 
   console.log('📖 Seeding stories...')
   for (const story of STORIES_SEED) {
-    await db.collection('stories').doc(story.id).set({
+    const id = story.id.replace(/mar-\d+-\d+/, week)
+    await db.collection('stories').doc(id).set({
       ...story,
+      id,
+      weekLabel: week,
       createdAt: admin.firestore.Timestamp.now(),
     })
   }
@@ -46,17 +52,18 @@ async function seed() {
 
   console.log('📊 Seeding player stats...')
   for (const stat of PLAYER_STATS_SEED) {
-    const id = `${stat.teamId}-${stat.playerName.replace(/\s+/g, '-')}-${stat.statWeek}`
-    await db.collection('playerStats').doc(id).set(stat)
+    const id = `${stat.teamId}-${stat.playerName.replace(/\s+/g, '-')}-${week}`
+    await db.collection('playerStats').doc(id).set({ ...stat, statWeek: week })
   }
   console.log(`   ✓ ${PLAYER_STATS_SEED.length} player stats`)
 
   console.log('📰 Seeding weekly digest...')
-  await db.collection('weeklyDigest').doc(WEEKLY_DIGEST_SEED.weekLabel).set({
+  await db.collection('weeklyDigest').doc(week).set({
     ...WEEKLY_DIGEST_SEED,
+    weekLabel: week,
     generatedAt: admin.firestore.Timestamp.now(),
   })
-  console.log(`   ✓ week: ${WEEKLY_DIGEST_SEED.weekLabel}`)
+  console.log(`   ✓ week: ${week}`)
 
   console.log('⚙️  Seeding user preferences...')
   await db.collection('userPreferences').doc('ted').set({
