@@ -31,9 +31,8 @@ export default function Dashboard() {
   const [stories, setStories]     = useState<Story[]>([])
   const [stats, setStats]         = useState<PlayerStat[]>([])
   const [digest, setDigest]       = useState<WeeklyDigest | null>(null)
-  const [selected, setSelected]   = useState<string[]>([
-    'MUN','BAR','ARS','MCI','LFC','CFC','TOT','NEW','FUL','BRI','BOU','CRY','ATM','RMA','PSG','BMU','BVB','LEV','INT','ACM','JUV','ASM'
-  ])
+  const DEFAULT_SELECTED = ['MUN','BAR','ARS','MCI','LFC','CFC','TOT','NEW','FUL','BRI','BOU','CRY','ATM','RMA','PSG','BMU','BVB','LEV','INT','ACM','JUV','ASM']
+  const [selected, setSelected]   = useState<string[]>(DEFAULT_SELECTED)
   const [loading, setLoading]     = useState(true)
 
   const theme = LEAGUE_THEMES[activeLeague] || LEAGUE_THEMES.EPL
@@ -53,6 +52,8 @@ export default function Dashboard() {
         setDigest(data.digest ?? null)
         setPrevWeeks(data.prevWeeks ?? [])
         setStats(data.stats ?? [])
+        // Load saved team selection if available
+        if (data.selectedTeams?.length > 0) setSelected(data.selectedTeams)
         if (!r.ok) console.error('[dashboard] API error:', data.error)
       })
       .catch(e => console.error('[dashboard] fetch failed:', e))

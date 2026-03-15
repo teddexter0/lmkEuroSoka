@@ -15,7 +15,11 @@ export function getWeekLabel(date = new Date()): string {
 }
 
 export function currentWeekLabel(): string {
-  return getWeekLabel(new Date())
+  const d = new Date()
+  const day = d.getDay() // 0=Sun, 1=Mon...
+  // Roll back to Monday (if Sunday roll back 6 days, otherwise roll back day-1)
+  d.setDate(d.getDate() - (day === 0 ? 6 : day - 1))
+  return getWeekLabel(d)
 }
 
 export function daysUntil(date: Date): string {

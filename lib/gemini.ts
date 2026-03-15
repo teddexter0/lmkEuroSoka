@@ -104,3 +104,70 @@ Return ONLY a JSON array of 6 humor strings, no markdown fences.`
   if (!textBlock || textBlock.type !== 'text') throw new Error('No text in response')
   return JSON.parse(textBlock.text.replace(/```json|```/g, '').trim())
 }
+
+export async function generateAndUpsertDigest(weekLabel: string) {
+  try {
+    // Pull this week's fixtures to give Claude real context
+    const fixturesSnap = await adminDb.collection('fixtures').where('weekLabel', '==', weekLabel).get()
+    const matchEvents = fixturesSnap.docs.map(d => {
+      const f = d.data()
+      const score = (f.homeScore != null && f.awayScore != null) ? `${f.homeScore}-${f.awayScore}` : 'upcoming'
+      return `${f.homeName} vs ${f.awayName} (${score}, ${f.competition ?? f.league})`
+    })
+
+    const prompt = `You are the editorial AI for lmkEuroSoka, a personal football intelligence platform for Ted (20, Nairobi, Kenya).
+
+Week: ${weekLabel}
+Matches this week: ${matchEvents.length > 0 ? matchEvents.join(' | ') : 'UCL Round of 16 fixtures'}
+
+Generate a weekly digest package. Return ONLY valid JSON (no markdown fences):
+{
+  "humorItems": [
+    "6 strings — Grammy-monologue style football humor. Puns, absurdist observations, Peter Drury on mundane results. Warm and affectionate, never mean."
+  ],
+  "historyFacts": [
+    {"date": "Month DD", "fact": "A short, surprising historical football fact relevant to this week in history (e.g. a famous result, birthday, signing)"},
+    {"date": "Month DD", "fact": "..."},
+    {"date": "Month DD", "fact": "..."},
+    {"date": "Month DD", "fact": "..."}
+  ],
+  "wildcardTeamId": "one team ID from this list: MUN|BAR|ARS|MCI|LFC|CFC|NEW|PSG|BMU|TOT|FUL|BRI|BOU|CRY|ATM|RMA|BVB|LEV|INT|ACM|JUV|ASM — pick the most interesting underdog or emerging story of the week",
+  "wildcardReason": "1-2 sentences explaining why this team is the wildcard pick — specific, no fluff",
+  "pinnedFixtures": [
+    {"label": "e.g. Liverpool vs Man City", "date": "e.g. Mar 16 · 17:30 EAT", "color": "#FF4500"},
+    {"label": "...", "date": "...", "color": "#FFD700"}
+  ]
+}
+
+Rules:
+- humorItems: exactly 6 strings
+- historyFacts: exactly 4 objects with short punchy facts
+- wildcardTeamId: must be a real team ID from the list above
+- pinnedFixtures: 2-3 of the most unmissable matches this week with EAT kickoff times`
+
+    const response = await client.messages.create({
+      model: 'claude-opus-4-6',
+      max_tokens: 1024,
+      messages: [{ role: 'user', content: prompt }],
+    })
+
+    const textBlock = response.content.find(b => b.type === 'text')
+    if (!textBlock || textBlock.type !== 'text') throw new Error('No text in digest response')
+
+    const parsed = JSON.parse(textBlock.text.replace(/```json|```/g, '').trim())
+
+    await adminDb.collection('weeklyDigest').doc(weekLabel).set({
+      weekLabel,
+      humorItems: parsed.humorItems ?? [],
+      historyFacts: parsed.historyFacts ?? [],
+      wildcardTeamId: parsed.wildcardTeamId ?? null,
+      wildcardReason: parsed.wildcardReason ?? '',
+      pinnedFixtures: parsed.pinnedFixtures ?? [],
+      generatedAt: admin.firestore.Timestamp.now(),
+    }, { merge: true })
+
+    console.log(`✓ Weekly digest generated for ${weekLabel}`)
+  } catch (e) {
+    console.error(`Digest generation failed for ${weekLabel}:`, e)
+  }
+}

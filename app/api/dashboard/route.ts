@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
       storiesSnap,
       digestSnap,
       prevWeeksSnap,
+      prefsSnap,
       ...statSnaps
     ] = await Promise.all([
       db.collection('teams').get(),
@@ -29,6 +30,7 @@ export async function GET(req: NextRequest) {
       db.collection('stories').where('weekLabel', '==', weekLabel).where('isActive', '==', true).get(),
       db.collection('weeklyDigest').doc(weekLabel).get(),
       db.collection('weeklyDigest').orderBy('generatedAt', 'desc').limit(5).get(),
+      db.collection('userPreferences').doc('ted').get(),
       ...priority.map(id =>
         db.collection('playerStats')
           .where('teamId', '==', id)
@@ -38,6 +40,9 @@ export async function GET(req: NextRequest) {
     ])
 
     const teams = teamsSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+    const savedSelectedTeams: string[] = prefsSnap.exists
+      ? (prefsSnap.data()?.selectedTeams ?? [])
+      : []
 
     const fixtures = fixturesSnap.docs
       .map(d => {
@@ -61,11 +66,11 @@ export async function GET(req: NextRequest) {
     const prevWeeks = prevWeeksSnap.docs.map(d => d.id)
     const stats = statSnaps.flatMap(snap => snap.docs.map(d => d.data()))
 
-    return NextResponse.json({ teams, fixtures, stories, digest, prevWeeks, stats })
+    return NextResponse.json({ teams, fixtures, stories, digest, prevWeeks, stats, selectedTeams: savedSelectedTeams })
   } catch (err: any) {
     console.error('[/api/dashboard] Error:', err?.message ?? err)
     return NextResponse.json(
-      { error: err?.message ?? 'Internal server error', teams: [], fixtures: [], stories: [], digest: null, prevWeeks: [], stats: [] },
+      { error: err?.message ?? 'Internal server error', teams: [], fixtures: [], stories: [], digest: null, prevWeeks: [], stats: [], selectedTeams: [] },
       { status: 500 }
     )
   }
