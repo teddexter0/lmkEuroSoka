@@ -42,8 +42,8 @@ export default function Dashboard() {
   useEffect(() => {
     setLoading(true)
     fetch(`/api/dashboard?week=${encodeURIComponent(weekLabel)}`)
-      .then(r => r.json())
-      .then(data => {
+      .then(async r => {
+        const data = await r.json()
         setTeams(data.teams ?? [])
         setFixtures((data.fixtures ?? []).map((f: any) => ({
           ...f,
@@ -53,8 +53,9 @@ export default function Dashboard() {
         setDigest(data.digest ?? null)
         setPrevWeeks(data.prevWeeks ?? [])
         setStats(data.stats ?? [])
+        if (!r.ok) console.error('[dashboard] API error:', data.error)
       })
-      .catch(console.error)
+      .catch(e => console.error('[dashboard] fetch failed:', e))
       .finally(() => setLoading(false))
   }, [weekLabel])
 
