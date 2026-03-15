@@ -59,7 +59,7 @@ export default function FixtureCard({ fixture }: { fixture: Fixture }) {
           ) : (
             <div>
               <p style={{ fontSize: 13, fontFamily: 'JetBrains Mono, monospace', color: '#ffffff', fontWeight: 600 }}>vs</p>
-              <p style={{ fontSize: 10, fontFamily: 'JetBrains Mono, monospace', color: '#FFD700', marginTop: 2 }}>
+              <p suppressHydrationWarning style={{ fontSize: 10, fontFamily: 'JetBrains Mono, monospace', color: '#FFD700', marginTop: 2 }}>
                 {daysUntil(fixture.matchDate)}
               </p>
             </div>
@@ -72,7 +72,7 @@ export default function FixtureCard({ fixture }: { fixture: Fixture }) {
       </div>
 
       {/* Date + time */}
-      <p style={{ textAlign: 'center', fontSize: 11, color: '#778899', fontFamily: 'JetBrains Mono, monospace', marginTop: 6 }}>
+      <p suppressHydrationWarning style={{ textAlign: 'center', fontSize: 11, color: '#778899', fontFamily: 'JetBrains Mono, monospace', marginTop: 6 }}>
         {toEAT(fixture.matchDate)}
       </p>
 
