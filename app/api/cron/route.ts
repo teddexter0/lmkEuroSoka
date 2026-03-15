@@ -5,7 +5,7 @@ import { currentWeekLabel } from '@/lib/utils'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-export const maxDuration = 300
+export const maxDuration = 60
 
 export async function GET(req: Request) {
   const authHeader = req.headers.get('authorization')
@@ -14,27 +14,17 @@ export async function GET(req: Request) {
   }
 
   const weekLabel = currentWeekLabel()
-  const results: Record<string, string> = {}
 
-  try {
-    await fetchAndUpsertFixtures(weekLabel)
-    results.fixtures = 'ok'
-  } catch (e: any) {
-    results.fixtures = `error: ${e.message}`
-  }
+  const [fixtures, standings, stories] = await Promise.allSettled([
+    fetchAndUpsertFixtures(weekLabel),
+    fetchAndUpsertStandings(weekLabel),
+    generateAndUpsertStories(weekLabel),
+  ])
 
-  try {
-    await fetchAndUpsertStandings(weekLabel)
-    results.standings = 'ok'
-  } catch (e: any) {
-    results.standings = `error: ${e.message}`
-  }
-
-  try {
-    await generateAndUpsertStories(weekLabel)
-    results.stories = 'ok'
-  } catch (e: any) {
-    results.stories = `error: ${e.message}`
+  const results = {
+    fixtures: fixtures.status === 'fulfilled' ? 'ok' : `error: ${(fixtures as PromiseRejectedResult).reason?.message}`,
+    standings: standings.status === 'fulfilled' ? 'ok' : `error: ${(standings as PromiseRejectedResult).reason?.message}`,
+    stories: stories.status === 'fulfilled' ? 'ok' : `error: ${(stories as PromiseRejectedResult).reason?.message}`,
   }
 
   return NextResponse.json({ success: true, weekLabel, results })
