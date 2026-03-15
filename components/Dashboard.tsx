@@ -2,10 +2,6 @@
 import { useState, useEffect } from 'react'
 import type { Team, Fixture, Story, PlayerStat, WeeklyDigest } from '@/types'
 import { LEAGUE_THEMES, currentWeekLabel } from '@/lib/utils'
-import {
-  getTeams, getFixturesByWeek, getStoriesByWeek,
-  getPlayerStatsByTeam, getWeeklyDigest, getPreviousWeekLabels,
-} from '@/lib/firestore'
 
 import LeagueNav       from './LeagueNav'
 import FixtureList     from './FixtureList'
@@ -45,35 +41,31 @@ export default function Dashboard() {
   // Load all data
   useEffect(() => {
     setLoading(true)
-    const priority = ['MUN','BAR','ARS','MCI','LFC','CFC','NEW','PSG','BMU']
-
-    Promise.all([
-      getTeams(),
-      getFixturesByWeek(weekLabel),
-      getStoriesByWeek(weekLabel),
-      getWeeklyDigest(weekLabel),
-      getPreviousWeekLabels(5),
-      ...priority.map(id => getPlayerStatsByTeam(id, weekLabel)),
-    ]).then(([ts, fx, st, dg, pw, ...statArrays]) => {
-      setTeams(ts as Team[])
-      setFixtures(fx as Fixture[])
-      setStories(st as Story[])
-      setDigest(dg as WeeklyDigest | null)
-      setPrevWeeks(pw as string[])
-      setStats((statArrays as PlayerStat[][]).flat())
-    }).catch(console.error)
-    .finally(() => setLoading(false))
+    fetch(`/api/dashboard?week=${encodeURIComponent(weekLabel)}`)
+      .then(r => r.json())
+      .then(data => {
+        setTeams(data.teams ?? [])
+        setFixtures((data.fixtures ?? []).map((f: any) => ({
+          ...f,
+          matchDate: f.matchDate ? new Date(f.matchDate) : new Date(),
+        })))
+        setStories(data.stories ?? [])
+        setDigest(data.digest ?? null)
+        setPrevWeeks(data.prevWeeks ?? [])
+        setStats(data.stats ?? [])
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false))
   }, [weekLabel])
 
   // Handle team selection changes
   async function handleSelectionChange(ids: string[]) {
     setSelected(ids)
-    // Update Firestore user prefs
-    try {
-      const { doc, setDoc } = await import('firebase/firestore')
-      const { db } = await import('@/lib/firebase')
-      await setDoc(doc(db, 'userPreferences', 'ted'), { selectedTeams: ids, updatedAt: new Date() }, { merge: true })
-    } catch (e) { console.warn('Could not save preferences:', e) }
+    fetch('/api/dashboard', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ selectedTeams: ids }),
+    }).catch(e => console.warn('Could not save preferences:', e))
   }
 
   return (

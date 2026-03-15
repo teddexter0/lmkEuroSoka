@@ -1,8 +1,8 @@
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import Anthropic from '@anthropic-ai/sdk'
 import { adminDb } from './firebase-admin'
 import admin from 'firebase-admin'
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
+const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 const PRIORITY_TEAMS = [
   { id: 'MUN', name: 'Manchester United', league: 'Premier League', tag: 'YOUR UNITED' },
@@ -43,50 +43,64 @@ Return ONLY valid JSON, no markdown fences:
 }
 
 export async function generateAndUpsertStories(weekLabel: string) {
-  const model = genAI.getGenerativeModel({ model: 'gemini-pro' })
+  await Promise.allSettled(
+    PRIORITY_TEAMS.map(async (team) => {
+      try {
+        const response = await client.messages.create({
+          model: 'claude-opus-4-6',
+          max_tokens: 1024,
+          messages: [{
+            role: 'user',
+            content: buildPrompt(
+              team.name,
+              team.tag,
+              JSON.stringify({ teamId: team.id, weekLabel, league: team.league })
+            ),
+          }],
+        })
 
-  for (const team of PRIORITY_TEAMS) {
-    try {
-      const result = await model.generateContent(
-        buildPrompt(team.name, team.tag, JSON.stringify({ teamId: team.id, weekLabel, league: team.league }))
-      )
-      const text = result.response.text().replace(/```json|```/g, '').trim()
-      const parsed = JSON.parse(text)
+        const textBlock = response.content.find(b => b.type === 'text')
+        if (!textBlock || textBlock.type !== 'text') throw new Error('No text in response')
 
-      await adminDb.collection('stories').doc(`${team.id}-${weekLabel}`).set({
-        id: `${team.id}-${weekLabel}`,
-        teamId: team.id,
-        league: team.league,
-        tag: team.tag,
-        title: `${team.name} — Week of ${weekLabel}`,
-        druryQuote: parsed.druryQuote,
-        body: parsed.body,
-        statsJson: [],
-        weekLabel,
-        isActive: true,
-        createdAt: admin.firestore.Timestamp.now(),
-      }, { merge: true })
+        const parsed = JSON.parse(textBlock.text.replace(/```json|```/g, '').trim())
 
-      console.log(`✓ Story generated for ${team.name}`)
-      // Respect Gemini free tier rate limits
-      await new Promise(r => setTimeout(r, 2000))
-    } catch (e) {
-      console.error(`Story generation failed for ${team.name}:`, e)
-    }
-  }
+        await adminDb.collection('stories').doc(`${team.id}-${weekLabel}`).set({
+          id: `${team.id}-${weekLabel}`,
+          teamId: team.id,
+          league: team.league,
+          tag: team.tag,
+          title: `${team.name} — Week of ${weekLabel}`,
+          druryQuote: parsed.druryQuote,
+          body: parsed.body,
+          statsJson: [],
+          weekLabel,
+          isActive: true,
+          createdAt: admin.firestore.Timestamp.now(),
+        }, { merge: true })
+
+        console.log(`✓ Story generated for ${team.name}`)
+      } catch (e) {
+        console.error(`Story generation failed for ${team.name}:`, e)
+      }
+    })
+  )
 }
 
 export async function generateHumorItems(matchEvents: string[]): Promise<string[]> {
-  const model = genAI.getGenerativeModel({ model: 'gemini-pro' })
-
-  const prompt = `You write football humor for lmkEuroSoka. Style: Grammy opening monologue — warm, self-aware, affectionate. 
+  const prompt = `You write football humor for lmkEuroSoka. Style: Grammy opening monologue — warm, self-aware, affectionate.
 RULES:
 - DO: puns on scorelines, absurdist media observations, Peter Drury-style Shakespeare on mundane results, Onion-style headlines
 - DO NOT: mock a club's quality or fanbase, target players personally
 Based on these match events: ${matchEvents.join(', ')}
 Return ONLY a JSON array of 6 humor strings, no markdown fences.`
 
-  const result = await model.generateContent(prompt)
-  const text = result.response.text().replace(/```json|```/g, '').trim()
-  return JSON.parse(text)
+  const response = await client.messages.create({
+    model: 'claude-opus-4-6',
+    max_tokens: 512,
+    messages: [{ role: 'user', content: prompt }],
+  })
+
+  const textBlock = response.content.find(b => b.type === 'text')
+  if (!textBlock || textBlock.type !== 'text') throw new Error('No text in response')
+  return JSON.parse(textBlock.text.replace(/```json|```/g, '').trim())
 }
