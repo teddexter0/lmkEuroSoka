@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminDb } from '@/lib/firebase-admin'
+import { fetchAndUpsertFixtures, fetchAndUpsertStandings } from '@/lib/football-api'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -66,7 +67,40 @@ export async function GET(req: NextRequest) {
     const prevWeeks = prevWeeksSnap.docs.map(d => d.id)
     const stats = statSnaps.flatMap(snap => snap.docs.map(d => d.data()))
 
-    return NextResponse.json({ teams, fixtures, stories, digest, prevWeeks, stats, selectedTeams: savedSelectedTeams })
+    // ── Auto-bootstrap: if Firebase is empty, fetch live data now ────────────
+    // Runs inline on first load so the app shows real data immediately.
+    // Subsequent loads hit Firebase cache (much faster).
+    let liveFixtures = fixtures
+    if (fixtures.length === 0 && process.env.FOOTBALL_API_KEY) {
+      try {
+        console.log('[dashboard] Firebase empty — auto-fetching fixtures + standings from Football API')
+        await Promise.allSettled([
+          fetchAndUpsertFixtures(weekLabel),
+          fetchAndUpsertStandings(weekLabel),
+        ])
+        // Re-query after upsert
+        const freshSnap = await db.collection('fixtures').where('weekLabel', '==', weekLabel).get()
+        liveFixtures = freshSnap.docs
+          .map(d => {
+            const data = d.data()
+            return {
+              ...data,
+              matchDate: data.matchDate?._seconds
+                ? new Date(data.matchDate._seconds * 1000).toISOString()
+                : data.matchDate ?? null,
+            }
+          })
+          .sort((a, b) => {
+            if (!a.matchDate) return 1
+            if (!b.matchDate) return -1
+            return new Date(a.matchDate).getTime() - new Date(b.matchDate).getTime()
+          })
+      } catch (e: any) {
+        console.error('[dashboard] Auto-bootstrap failed:', e?.message)
+      }
+    }
+
+    return NextResponse.json({ teams, fixtures: liveFixtures, stories, digest, prevWeeks, stats, selectedTeams: savedSelectedTeams })
   } catch (err: any) {
     console.error('[/api/dashboard] Error:', err?.message ?? err)
     return NextResponse.json(
