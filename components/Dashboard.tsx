@@ -167,10 +167,15 @@ export default function Dashboard() {
           {activeTab === 'STORIES' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {stories.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: 48, color: '#444466' }}>
-                  <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>
-                    Stories load from Firebase. Run npm run seed or wait for weekly cron.
+                <div style={{ textAlign: 'center', padding: 48 }}>
+                  <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, color: '#444466', marginBottom: 14 }}>
+                    No stories yet for this week.
                   </p>
+                  <a href="/admin" style={{
+                    fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: '#8899ff',
+                    background: '#8899ff18', border: '1px solid #8899ff33',
+                    padding: '8px 16px', borderRadius: 6, textDecoration: 'none',
+                  }}>Run cron to generate stories →</a>
                 </div>
               ) : (
                 stories

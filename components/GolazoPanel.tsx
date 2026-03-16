@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import type { YoutubeVideo } from '@/types'
 
-const CHANNEL_URL = 'https://www.youtube.com/@CBSSports'
+const CHANNEL_URL = 'https://www.youtube.com/@CBSSportsGolazo'
 
 export default function GolazoPanel() {
   const [video, setVideo] = useState<YoutubeVideo | null>(null)
@@ -42,7 +42,7 @@ export default function GolazoPanel() {
               whiteSpace: 'nowrap',
             }}
           >
-            CBS Sports ↗
+            CBS Golazo ↗
           </a>
         </div>
       </div>
