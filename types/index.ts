@@ -120,4 +120,5 @@ export interface YoutubeVideo {
   title: string
   thumbnail: string
   publishedAt: string
+  views?: number
 }
