@@ -27,7 +27,7 @@ export default function GolazoPanel() {
             <p style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 700, fontSize: 16, color: '#e0e0ee' }}>
               CBS Golazo UCL Show
             </p>
-            <p style={{ fontSize: 12, color: '#778899', marginTop: 2 }}>Kate Abdo · Micah Richards · Jamie Carragher · Thierry Henry</p>
+            <p style={{ fontSize: 12, color: '#778899', marginTop: 2 }}>Kate Scott · Micah Richards · Jamie Carragher · Thierry Henry</p>
           </div>
           <a
             href={playlistUrl}
