@@ -2,17 +2,19 @@
 import { useState, useEffect } from 'react'
 import type { YoutubeVideo } from '@/types'
 
+const CHANNEL_URL = 'https://www.youtube.com/@CBSSports'
+
 export default function GolazoPanel() {
   const [video, setVideo] = useState<YoutubeVideo | null>(null)
-  const [playlistUrl, setPlaylistUrl] = useState('https://www.youtube.com/playlist?list=PLEbJmiPaOw7PfMkNcJKLPJm08rLUFhpPM')
+  const [channelUrl, setChannelUrl] = useState(CHANNEL_URL)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     fetch('/api/youtube')
       .then(r => r.json())
       .then(data => {
-        setVideo(data.video)
-        if (data.playlistUrl) setPlaylistUrl(data.playlistUrl)
+        setVideo(data.video ?? null)
+        if (data.channelUrl) setChannelUrl(data.channelUrl)
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -30,7 +32,7 @@ export default function GolazoPanel() {
             <p style={{ fontSize: 12, color: '#778899', marginTop: 2 }}>Kate Scott · Micah Richards · Jamie Carragher · Thierry Henry</p>
           </div>
           <a
-            href={playlistUrl}
+            href={channelUrl}
             target="_blank"
             rel="noopener noreferrer"
             style={{
@@ -40,7 +42,7 @@ export default function GolazoPanel() {
               whiteSpace: 'nowrap',
             }}
           >
-            ▶ Full Playlist
+            CBS Sports ↗
           </a>
         </div>
       </div>
@@ -49,7 +51,7 @@ export default function GolazoPanel() {
       <div style={{ padding: 16 }}>
         {loading ? (
           <div style={{ aspectRatio: '16/9', background: '#0d0d1f', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: '#444466' }}>Loading latest UCL show...</span>
+            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: '#444466' }}>Checking for latest show...</span>
           </div>
         ) : video ? (
           <div>
@@ -59,27 +61,40 @@ export default function GolazoPanel() {
               allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
             />
-            <p style={{ fontSize: 13, color: '#aaaacc', marginTop: 10, lineHeight: 1.4 }}>{video.title}</p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 10 }}>
+              <p style={{ fontSize: 13, color: '#aaaacc', lineHeight: 1.4, flex: 1 }}>{video.title}</p>
+              {video.views != null && (
+                <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, color: '#778899', marginLeft: 12, whiteSpace: 'nowrap' }}>
+                  {video.views >= 1_000_000
+                    ? `${(video.views / 1_000_000).toFixed(1)}M views`
+                    : `${Math.round(video.views / 1000)}K views`}
+                </span>
+              )}
+            </div>
             <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, color: '#444466', marginTop: 4 }}>
               {new Date(video.publishedAt).toLocaleDateString('en-KE', { timeZone: 'Africa/Nairobi', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} EAT
             </p>
           </div>
         ) : (
-          <div style={{ textAlign: 'center', padding: '32px 0' }}>
-            <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, color: '#444466', marginBottom: 12 }}>
-              No UCL show in the last 72hrs.
+          /* No video hit 90k views in last 24h — go straight to channel */
+          <div style={{ textAlign: 'center', padding: '32px 16px' }}>
+            <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: '#444466', marginBottom: 6 }}>
+              No show above 90K views in the last 24 hrs.
+            </p>
+            <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, color: '#333355', marginBottom: 20 }}>
+              Check back after matchdays — or browse the channel.
             </p>
             <a
-              href={playlistUrl}
+              href={channelUrl}
               target="_blank"
               rel="noopener noreferrer"
               style={{
-                fontFamily: 'Space Grotesk, sans-serif', fontSize: 14, color: '#FF0000',
-                background: '#FF000015', border: '1px solid #FF000033',
-                padding: '10px 20px', borderRadius: 8, textDecoration: 'none', display: 'inline-block',
+                fontFamily: 'Space Grotesk, sans-serif', fontWeight: 700, fontSize: 15, color: '#FF0000',
+                background: '#FF000015', border: '1px solid #FF000044',
+                padding: '12px 28px', borderRadius: 8, textDecoration: 'none', display: 'inline-block',
               }}
             >
-              Watch all Golazo UCL episodes ↗
+              ▶ Go to CBS Sports Channel
             </a>
           </div>
         )}
