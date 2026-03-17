@@ -164,31 +164,44 @@ export default function Dashboard() {
           )}
 
           {/* STORIES TAB */}
-          {activeTab === 'STORIES' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {stories.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: 48 }}>
-                  <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, color: '#444466', marginBottom: 14 }}>
-                    No stories yet for this week.
-                  </p>
-                  <a href="/admin" style={{
-                    fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: '#8899ff',
-                    background: '#8899ff18', border: '1px solid #8899ff33',
-                    padding: '8px 16px', borderRadius: 6, textDecoration: 'none',
-                  }}>Run cron to generate stories →</a>
-                </div>
-              ) : (
-                stories
-                  .filter(s => selected.includes(s.teamId) || selected.length === 0)
-                  .map(s => <StoryCard key={s.id} story={s} teams={teams} />)
-              )}
-            </div>
-          )}
+          {activeTab === 'STORIES' && (() => {
+            const leagueStories = stories.filter(s => {
+              const teamLeague = teams.find(t => t.id === s.teamId)?.league
+              return teamLeague === activeLeague && (selected.includes(s.teamId) || selected.length === 0)
+            })
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {stories.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: 48 }}>
+                    <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, color: '#444466', marginBottom: 14 }}>
+                      No stories yet for this week.
+                    </p>
+                    <a href="/admin" style={{
+                      fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: '#8899ff',
+                      background: '#8899ff18', border: '1px solid #8899ff33',
+                      padding: '8px 16px', borderRadius: 6, textDecoration: 'none',
+                    }}>Run cron to generate stories →</a>
+                  </div>
+                ) : leagueStories.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: 48 }}>
+                    <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, color: '#444466' }}>
+                      No stories for {theme.name} teams this week.
+                    </p>
+                  </div>
+                ) : (
+                  leagueStories.map(s => <StoryCard key={s.id} story={s} teams={teams} />)
+                )}
+              </div>
+            )
+          })()}
 
           {/* STATS TAB */}
           {activeTab === 'STATS' && (
             <PlayerStatsPanel
-              stats={stats.filter(s => selected.includes(s.teamId))}
+              stats={stats.filter(s => {
+                const teamLeague = teams.find(t => t.id === s.teamId)?.league
+                return teamLeague === activeLeague && selected.includes(s.teamId)
+              })}
               teams={teams}
             />
           )}

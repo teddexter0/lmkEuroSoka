@@ -67,11 +67,8 @@ export default function UCLBracket() {
       ) : ties.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 32, background: '#0a0a14', borderRadius: 8, border: '1px solid #1c1c2e' }}>
           <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: '#444466' }}>
-            UCL fixtures load after first cron run.
+            UCL knockout fixtures unavailable right now.
           </p>
-          <a href="/admin" style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, color: '#F5C842', marginTop: 8, display: 'block' }}>
-            Run cron now →
-          </a>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 10 }}>

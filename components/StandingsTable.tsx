@@ -71,6 +71,9 @@ export default function StandingsTable({ activeLeague, ready = true }: { activeL
     // Wait for dashboard bootstrap (fixtures auto-fetch) to finish before querying
     // standings — avoids a race where we read Firebase before it's been written
     if (!ready) return
+    // Reset immediately so we don't show the previous league's rows while loading
+    setRows(STATIC_FALLBACK[activeLeague] ?? [])
+    setStale(true)
     setLoading(true)
     fetch(`/api/standings?league=${activeLeague}`)
       .then(r => r.json())
