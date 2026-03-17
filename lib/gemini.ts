@@ -42,9 +42,14 @@ Return ONLY valid JSON, no markdown fences:
 {"druryQuote":"...", "body":"paragraph1\\n\\nparagraph2\\n\\nparagraph3\\n\\nparagraph4\\n\\nparagraph5\\n\\nparagraph6"}`
 }
 
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
+
 export async function generateAndUpsertStories(weekLabel: string) {
-  await Promise.allSettled(
-    PRIORITY_TEAMS.map(async (team) => {
+  // Sequential — not concurrent. Concurrent hits Anthropic rate limits
+  // and silently kills all but the first 1-2 stories.
+  for (const team of PRIORITY_TEAMS) {
+    let attempt = 0
+    while (attempt < 2) {
       try {
         const response = await client.messages.create({
           model: 'claude-opus-4-6',
@@ -79,11 +84,20 @@ export async function generateAndUpsertStories(weekLabel: string) {
         }, { merge: true })
 
         console.log(`✓ Story generated for ${team.name}`)
-      } catch (e) {
-        console.error(`Story generation failed for ${team.name}:`, e)
+        await sleep(800) // respect rate limits between calls
+        break
+      } catch (e: any) {
+        attempt++
+        if (attempt < 2 && e?.status === 429) {
+          console.warn(`Rate limited on ${team.name}, retrying in 5s...`)
+          await sleep(5000)
+        } else {
+          console.error(`Story generation failed for ${team.name}:`, e?.message ?? e)
+          break
+        }
       }
-    })
-  )
+    }
+  }
 }
 
 export async function generateHumorItems(matchEvents: string[]): Promise<string[]> {

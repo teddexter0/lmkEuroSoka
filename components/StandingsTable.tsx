@@ -62,12 +62,15 @@ function zoneClass(row: StandingRow): string {
   return ''
 }
 
-export default function StandingsTable({ activeLeague }: { activeLeague: string }) {
+export default function StandingsTable({ activeLeague, ready = true }: { activeLeague: string; ready?: boolean }) {
   const [rows, setRows] = useState<StandingRow[]>(STATIC_FALLBACK[activeLeague] ?? [])
   const [stale, setStale] = useState(true)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Wait for dashboard bootstrap (fixtures auto-fetch) to finish before querying
+    // standings — avoids a race where we read Firebase before it's been written
+    if (!ready) return
     setLoading(true)
     fetch(`/api/standings?league=${activeLeague}`)
       .then(r => r.json())
@@ -76,7 +79,6 @@ export default function StandingsTable({ activeLeague }: { activeLeague: string 
           setRows(data.rows)
           setStale(data.stale ?? false)
         } else {
-          // Firebase has no data yet — use static fallback
           setRows(STATIC_FALLBACK[activeLeague] ?? [])
           setStale(true)
         }
@@ -86,7 +88,7 @@ export default function StandingsTable({ activeLeague }: { activeLeague: string 
         setStale(true)
       })
       .finally(() => setLoading(false))
-  }, [activeLeague])
+  }, [activeLeague, ready])
 
   if (activeLeague === 'UCL') {
     return (
