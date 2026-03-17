@@ -16,8 +16,8 @@ export async function GET() {
   }
 
   try {
-    // Fetch all UCL knockout fixtures for 2025-26
-    const url = `${BASE}/fixtures?league=2&season=2025&type=Single`
+    // Fetch all UCL fixtures for 2025-26 (round filter below handles knockout-only)
+    const url = `${BASE}/fixtures?league=2&season=2025`
     const res = await fetch(url, {
       headers: { 'x-apisports-key': process.env.FOOTBALL_API_KEY },
     })
