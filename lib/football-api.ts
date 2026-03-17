@@ -17,12 +17,22 @@ const LEAGUE_IDS: Record<string, number> = {
 const TEAM_ID_MAP: Record<number, string> = {
   33: 'MUN', 42: 'ARS', 50: 'MCI', 40: 'LFC', 49: 'CFC',
   47: 'TOT', 34: 'NEW', 36: 'FUL', 51: 'BRI', 35: 'BOU',
-  52: 'CRY', 45: 'EVE', 66: 'AVL',
+  52: 'CRY', 45: 'EVE', 66: 'AVL', 46: 'LEI', 55: 'WHU',
+  48: 'WOL', 39: 'WIG', 69: 'IPS', 41: 'SOT', 44: 'BUR',
+  // La Liga
   529: 'BAR', 541: 'RMA', 530: 'ATM', 533: 'VIL', 543: 'RBB', 536: 'SEV',
-  157: 'BMU', 165: 'BVB', 168: 'LEV', 173: 'RBL',
+  532: 'VAL', 728: 'RAY', 534: 'ATH', 548: 'ESP', 531: 'GIR',
+  // Bundesliga
+  157: 'BMU', 165: 'BVB', 168: 'LEV', 173: 'RBL', 169: 'SGE',
+  163: 'BOC', 172: 'SCF', 167: 'TSG', 171: 'WER', 162: 'AUG',
+  // Serie A
   505: 'INT', 489: 'ACM', 496: 'JUV', 492: 'NAP', 499: 'ATA',
-  85: 'PSG', 91: 'ASM', 81: 'OLM', 79: 'LIL',
-  497: 'GAL', 177: 'BOG',
+  487: 'ROM', 488: 'LAZ', 497: 'FIO', 490: 'PAR', 502: 'TOR',
+  // Ligue 1
+  85: 'PSG', 91: 'ASM', 81: 'OLM', 79: 'LIL', 80: 'LYO',
+  84: 'NIC', 94: 'REN', 95: 'STR', 93: 'LOR', 111: 'MON',
+  // UCL others
+  497: 'GAL', 177: 'BOG', 568: 'SPO',
 }
 
 async function apiFetch(path: string) {
@@ -42,8 +52,15 @@ export async function fetchAndUpsertFixtures(weekLabel: string) {
       ])
 
       const all = [...(upcoming.response || []), ...(recent.response || [])]
+      // Deduplicate by fixture ID
+      const seen = new Set<number>()
+      const unique = all.filter(f => {
+        if (seen.has(f.fixture.id)) return false
+        seen.add(f.fixture.id)
+        return true
+      })
 
-      for (const f of all) {
+      for (const f of unique) {
         const fix = f.fixture
         const home = f.teams.home
         const away = f.teams.away
@@ -96,11 +113,17 @@ export async function fetchAndUpsertStandings(weekLabel: string) {
         team: r.team.name,
         teamId: TEAM_ID_MAP[r.team.id] || '',
         pts: r.points,
+        played: r.all.played,
         w: r.all.win,
         d: r.all.draw,
         l: r.all.lose,
         gd: `${r.goalsDiff > 0 ? '+' : ''}${r.goalsDiff}`,
         form: (r.form || '').split('').slice(-5).join(''),
+        // Zone flags derived from rank
+        isTopFour: r.rank <= 4,
+        isRelegation: r.rank >= rows.length - 2,
+        isUserClub: false,
+        isWatch: false,
       }))
 
       await adminDb.collection('standings').doc(`${league}-${weekLabel}`).set({
@@ -108,6 +131,84 @@ export async function fetchAndUpsertStandings(weekLabel: string) {
       })
     } catch (e) {
       console.error(`Standings fetch failed for ${league}:`, e)
+    }
+  }
+}
+
+// Fetch top scorers + assisters per league and store as playerStats
+export async function fetchAndUpsertPlayerStats(weekLabel: string) {
+  for (const [league, id] of Object.entries(LEAGUE_IDS)) {
+    if (league === 'UCL') continue
+    try {
+      const [scorersData, assistsData] = await Promise.all([
+        apiFetch(`/players/topscorers?league=${id}&season=2025`),
+        apiFetch(`/players/topassists?league=${id}&season=2025`),
+      ])
+
+      // Build map of player data keyed by player ID
+      const playerMap: Record<string, any> = {}
+
+      for (const item of (scorersData.response || []).slice(0, 25)) {
+        const p = item.player
+        const s = item.statistics?.[0]
+        if (!s) continue
+        const teamId = TEAM_ID_MAP[s.team?.id] || ''
+        const key = `${teamId || s.team?.id}-${p.id}`
+        playerMap[key] = {
+          teamId,
+          teamName: s.team?.name || '',
+          playerName: p.name,
+          position: s.games?.position || 'Unknown',
+          goals: s.goals?.total || 0,
+          assists: s.goals?.assists || 0,
+          minutesPlayed: s.games?.minutes || 0,
+          appearances: s.games?.appearences || 0, // API typo
+          xg: parseFloat(s.goals?.total?.toString() || '0'), // proxy — real xG on paid tier
+          chancesCreated: s.passes?.key || 0,
+          ballRetentionPct: parseFloat(s.passes?.accuracy?.toString() || '0'),
+          isInjured: false,
+          statWeek: weekLabel,
+          league,
+        }
+      }
+
+      for (const item of (assistsData.response || []).slice(0, 25)) {
+        const p = item.player
+        const s = item.statistics?.[0]
+        if (!s) continue
+        const teamId = TEAM_ID_MAP[s.team?.id] || ''
+        const key = `${teamId || s.team?.id}-${p.id}`
+        if (playerMap[key]) {
+          playerMap[key].assists = s.goals?.assists || playerMap[key].assists
+        } else {
+          playerMap[key] = {
+            teamId,
+            teamName: s.team?.name || '',
+            playerName: p.name,
+            position: s.games?.position || 'Unknown',
+            goals: s.goals?.total || 0,
+            assists: s.goals?.assists || 0,
+            minutesPlayed: s.games?.minutes || 0,
+            appearances: s.games?.appearences || 0,
+            xg: 0,
+            chancesCreated: s.passes?.key || 0,
+            ballRetentionPct: parseFloat(s.passes?.accuracy?.toString() || '0'),
+            isInjured: false,
+            statWeek: weekLabel,
+            league,
+          }
+        }
+      }
+
+      // Write each player to Firebase
+      await Promise.all(
+        Object.entries(playerMap).map(([key, player]) =>
+          adminDb.collection('playerStats').doc(`${key}-${weekLabel}`).set(player, { merge: true })
+        )
+      )
+      console.log(`✓ Player stats saved for ${league}: ${Object.keys(playerMap).length} players`)
+    } catch (e) {
+      console.error(`Player stats fetch failed for ${league}:`, e)
     }
   }
 }

@@ -15,8 +15,6 @@ export async function GET(req: NextRequest) {
   try {
     const db = getAdminDb()
 
-    const priority = ['MUN', 'BAR', 'ARS', 'MCI', 'LFC', 'CFC', 'NEW', 'PSG', 'BMU']
-
     const [
       teamsSnap,
       fixturesSnap,
@@ -24,21 +22,16 @@ export async function GET(req: NextRequest) {
       digestSnap,
       prevWeeksSnap,
       prefsSnap,
-      ...statSnaps
+      playerStatsSnap,
     ] = await Promise.all([
       db.collection('teams').get(),
-      // No orderBy here — avoids requiring a composite Firestore index
       db.collection('fixtures').where('weekLabel', '==', weekLabel).get(),
       db.collection('stories').where('weekLabel', '==', weekLabel).where('isActive', '==', true).get(),
       db.collection('weeklyDigest').doc(weekLabel).get(),
       db.collection('weeklyDigest').orderBy('generatedAt', 'desc').limit(5).get(),
       db.collection('userPreferences').doc('ted').get(),
-      ...priority.map(id =>
-        db.collection('playerStats')
-          .where('teamId', '==', id)
-          .where('statWeek', '==', weekLabel)
-          .get()
-      ),
+      // Fetch ALL player stats for this week in one query (no per-team loop)
+      db.collection('playerStats').where('statWeek', '==', weekLabel).get(),
     ])
 
     let teams = teamsSnap.docs.map(d => ({ id: d.id, ...d.data() }))
@@ -77,7 +70,7 @@ export async function GET(req: NextRequest) {
     const stories = storiesSnap.docs.map(d => ({ id: d.id, ...d.data() }))
     const digest = digestSnap.exists ? digestSnap.data() : null
     const prevWeeks = prevWeeksSnap.docs.map(d => d.id)
-    const stats = statSnaps.flatMap(snap => snap.docs.map(d => d.data()))
+    const stats = playerStatsSnap.docs.map(d => d.data())
 
     // ── Auto-bootstrap: if Firebase is empty, fetch live data now ────────────
     // Runs inline on first load so the app shows real data immediately.

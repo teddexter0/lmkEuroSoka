@@ -79,10 +79,10 @@ export default function GolazoPanel() {
           /* No video hit 90k views in last 24h — go straight to channel */
           <div style={{ textAlign: 'center', padding: '32px 16px' }}>
             <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: '#444466', marginBottom: 6 }}>
-              No show above 90K views in the last 24 hrs.
+              No show above 100K views in the last 6 days.
             </p>
             <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, color: '#333355', marginBottom: 20 }}>
-              Check back after matchdays — or browse the channel.
+              Check back after UCL matchdays — or browse the channel.
             </p>
             <a
               href={channelUrl}
