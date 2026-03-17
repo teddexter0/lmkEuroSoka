@@ -21,18 +21,18 @@ const TEAM_ID_MAP: Record<number, string> = {
   48: 'WOL', 39: 'WIG', 69: 'IPS', 41: 'SOT', 44: 'BUR',
   // La Liga
   529: 'BAR', 541: 'RMA', 530: 'ATM', 533: 'VIL', 543: 'RBB', 536: 'SEV',
-  532: 'VAL', 728: 'RAY', 534: 'ATH', 548: 'ESP', 531: 'GIR',
+  532: 'VAL', 728: 'RAY', 534: 'ATH', 539: 'ESP', 531: 'GIR',
   // Bundesliga
   157: 'BMU', 165: 'BVB', 168: 'LEV', 173: 'RBL', 169: 'SGE',
   163: 'BOC', 172: 'SCF', 167: 'TSG', 171: 'WER', 162: 'AUG',
-  // Serie A
+  // Serie A (correct API-Sports IDs: Roma=497, Lazio=487, Fiorentina=502)
   505: 'INT', 489: 'ACM', 496: 'JUV', 492: 'NAP', 499: 'ATA',
-  487: 'ROM', 488: 'LAZ', 497: 'FIO', 490: 'PAR', 502: 'TOR',
+  487: 'LAZ', 497: 'ROM', 502: 'FIO', 494: 'PAR', 503: 'TOR',
   // Ligue 1
   85: 'PSG', 91: 'ASM', 81: 'OLM', 79: 'LIL', 80: 'LYO',
   84: 'NIC', 94: 'REN', 95: 'STR', 93: 'LOR', 111: 'MON',
-  // UCL others
-  497: 'GAL', 177: 'BOG', 568: 'SPO',
+  // UCL others (Galatasaray=548, Bodo/Glimt=177, Sporting CP=568)
+  548: 'GAL', 177: 'BOG', 568: 'SPO',
 }
 
 async function apiFetch(path: string) {
