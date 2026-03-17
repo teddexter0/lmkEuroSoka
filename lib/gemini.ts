@@ -24,19 +24,23 @@ Your writing style blends:
 - Joe Rogan: direct, no-BS, conversational — no corporate waffle
 - Megyn Kelly: source everything, don't speculate, hold positions with confidence
 
+CRITICAL RULE: Use ONLY the real data provided below. Do NOT invent scores, player names, or stats.
+If data is missing for a section, acknowledge what you DO know and give context/historical analysis instead.
+
 Your reader (Ted, 20, Nairobi, Kenya) follows ${teamName} closely. He has 60 minutes/week total for all football.
 He wants DEPTH, not summaries. He wants the thing nobody else is saying.
 Write a 600-word story for ${teamName} this week covering ALL of:
 
 1. OPENING: 2-3 sentence Peter Drury poetic opener (will be shown in italics)
-2. FORM & POSITION: current league/UCL standing and recent results (specific scores)
-3. KEY PLAYERS: 2-3 players — current form, stats, injury updates (name actual players)
+2. FORM & POSITION: current league/UCL standing and recent results (use the real scores provided)
+3. KEY PLAYERS: 2-3 players — current form, stats, injury updates (use real names only, from data)
 4. TRANSFER/OWNERSHIP: any recent transfer activity, rumours, financial news
 5. TACTICAL INSIGHT: what is evolving or changing in how they play
 6. THE BLIND SPOT: one thing mainstream coverage is missing — emerging player, data anomaly, tactical shift
 7. SCOUTING DESK: one youth/academy player to watch with a reason why
 
-Raw data context: ${rawData}
+REAL DATA THIS WEEK:
+${rawData}
 
 Return ONLY valid JSON, no markdown fences:
 {"druryQuote":"...", "body":"paragraph1\\n\\nparagraph2\\n\\nparagraph3\\n\\nparagraph4\\n\\nparagraph5\\n\\nparagraph6"}`
@@ -45,9 +49,65 @@ Return ONLY valid JSON, no markdown fences:
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
 export async function generateAndUpsertStories(weekLabel: string) {
+  // Pre-fetch all real data ONCE before the loop to ground Claude's output
+  let fixturesContext: Record<string, any[]> = {}
+  let standingsContext: Record<string, any[]> = {}
+
+  try {
+    const fixturesSnap = await adminDb.collection('fixtures').where('weekLabel', '==', weekLabel).get()
+    for (const doc of fixturesSnap.docs) {
+      const f = doc.data()
+      for (const tid of [f.homeTeamId, f.awayTeamId]) {
+        if (!fixturesContext[tid]) fixturesContext[tid] = []
+        fixturesContext[tid].push({
+          match: `${f.homeName} ${f.homeScore ?? '?'}-${f.awayScore ?? '?'} ${f.awayName}`,
+          status: f.status,
+          competition: f.competition || f.league,
+          date: f.matchDate?._seconds ? new Date(f.matchDate._seconds * 1000).toDateString() : 'upcoming',
+        })
+      }
+    }
+  } catch (e) {
+    console.warn('Could not pre-fetch fixtures for story context:', e)
+  }
+
+  try {
+    const leagueMap: Record<string, string> = {
+      'Premier League': 'EPL', 'La Liga': 'LA_LIGA',
+      'Bundesliga': 'BUNDESLIGA', 'Serie A': 'SERIE_A', 'Ligue 1': 'LIGUE_1',
+    }
+    for (const [league] of Object.entries(leagueMap)) {
+      const snap = await adminDb.collection('standings')
+        .where('league', '==', leagueMap[league])
+        .limit(1)
+        .get()
+      if (!snap.empty) standingsContext[leagueMap[league]] = snap.docs[0].data().rows || []
+    }
+  } catch (e) {
+    console.warn('Could not pre-fetch standings for story context:', e)
+  }
+
   // Sequential — not concurrent. Concurrent hits Anthropic rate limits
   // and silently kills all but the first 1-2 stories.
   for (const team of PRIORITY_TEAMS) {
+    // Build rich real-data context for this team
+    const teamFixtures = fixturesContext[team.id] || []
+    const leagueKey = team.league === 'Premier League' ? 'EPL'
+      : team.league === 'La Liga' ? 'LA_LIGA'
+      : team.league === 'Bundesliga' ? 'BUNDESLIGA'
+      : team.league === 'Serie A' ? 'SERIE_A'
+      : team.league === 'Ligue 1' ? 'LIGUE_1' : 'EPL'
+    const leagueRows = standingsContext[leagueKey] || []
+    const teamStanding = leagueRows.find((r: any) => r.teamId === team.id)
+
+    const rawData = JSON.stringify({
+      team: team.name,
+      league: team.league,
+      weekLabel,
+      currentStanding: teamStanding ? `Rank ${teamStanding.rank}, ${teamStanding.pts}pts, Form: ${teamStanding.form}` : 'not available',
+      recentAndUpcomingFixtures: teamFixtures.length > 0 ? teamFixtures : 'no fixture data yet',
+    }, null, 2)
+
     let attempt = 0
     while (attempt < 2) {
       try {
@@ -56,11 +116,7 @@ export async function generateAndUpsertStories(weekLabel: string) {
           max_tokens: 1024,
           messages: [{
             role: 'user',
-            content: buildPrompt(
-              team.name,
-              team.tag,
-              JSON.stringify({ teamId: team.id, weekLabel, league: team.league })
-            ),
+            content: buildPrompt(team.name, team.tag, rawData),
           }],
         })
 

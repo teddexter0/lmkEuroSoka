@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic'
 // CBS Sports Golazo — separate channel from "CBS Sports"
 const GOLAZO_HANDLE   = 'CBSSportsGolazo'
 const CHANNEL_URL     = 'https://www.youtube.com/@CBSSportsGolazo'
-const VIEWS_THRESHOLD = 90_000
+const VIEWS_THRESHOLD = 100_000
 
 async function resolveChannelId(handle: string, key: string): Promise<string | null> {
   try {

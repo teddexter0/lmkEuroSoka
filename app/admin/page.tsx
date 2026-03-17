@@ -4,6 +4,7 @@ import { useState } from 'react'
 type Results = {
   fixtures: string
   standings: string
+  playerStats: string
   stories: string
   digest: string
 }
@@ -48,7 +49,7 @@ export default function AdminPage() {
           Admin Trigger
         </h1>
         <p style={{ ...mono, fontSize: 11, color: '#778899', marginBottom: 28 }}>
-          Runs the full cron: fixtures → standings → stories → digest
+          Runs the full cron: fixtures → standings → player stats → stories (×9 teams) → digest
         </p>
 
         <label style={{ ...mono, fontSize: 11, color: '#778899', display: 'block', marginBottom: 8 }}>
@@ -77,12 +78,12 @@ export default function AdminPage() {
             cursor: running ? 'not-allowed' : 'pointer', transition: 'background 0.2s',
           }}
         >
-          {running ? '⏳ Running cron — this takes ~45s…' : '▶ Run Cron Now'}
+          {running ? '⏳ Running — takes ~90s (9 teams sequential)…' : '▶ Run Cron Now'}
         </button>
 
         {running && (
           <p style={{ ...mono, fontSize: 11, color: '#444466', textAlign: 'center', marginTop: 14 }}>
-            Fetching fixtures · generating stories · writing digest…
+            Fetching fixtures · player stats · generating 9 stories · writing digest…
           </p>
         )}
 
