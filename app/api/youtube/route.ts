@@ -38,8 +38,8 @@ export async function GET() {
       return NextResponse.json(fallback)
     }
 
-    // Step 1: search for recent videos from CBS Golazo channel (last 24 hours)
-    const publishedAfter = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    // Step 1: search for recent videos from CBS Golazo channel (last 6 days)
+    const publishedAfter = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString()
     const searchUrl = new URL('https://www.googleapis.com/youtube/v3/search')
     searchUrl.searchParams.set('channelId', channelId)
     searchUrl.searchParams.set('type', 'video')

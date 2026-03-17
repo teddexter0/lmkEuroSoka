@@ -179,10 +179,7 @@ export default function Dashboard() {
                 </div>
               ) : (
                 stories
-                  .filter(s => {
-                    const t = teams.find(x => x.id === s.teamId)
-                    return !t || t.league === activeLeague || s.teamId === 'UCL'
-                  })
+                  .filter(s => selected.includes(s.teamId) || selected.length === 0)
                   .map(s => <StoryCard key={s.id} story={s} teams={teams} />)
               )}
             </div>
@@ -198,7 +195,7 @@ export default function Dashboard() {
 
           {/* TABLE TAB */}
           {activeTab === 'TABLE' && (
-            <StandingsTable activeLeague={activeLeague} />
+            <StandingsTable activeLeague={activeLeague} ready={!loading} />
           )}
 
           {/* UCL TAB */}

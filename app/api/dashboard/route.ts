@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminDb } from '@/lib/firebase-admin'
 import { fetchAndUpsertFixtures, fetchAndUpsertStandings } from '@/lib/football-api'
+import { TEAMS_SEED } from '@/lib/seed-data'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -40,7 +41,18 @@ export async function GET(req: NextRequest) {
       ),
     ])
 
-    const teams = teamsSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+    let teams = teamsSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+
+    // Auto-seed teams if collection is empty — TeamSelector needs this to work
+    if (teams.length === 0) {
+      try {
+        await Promise.all(TEAMS_SEED.map(t => db.collection('teams').doc(t.id).set(t)))
+        teams = TEAMS_SEED as any[]
+        console.log('[dashboard] Teams auto-seeded')
+      } catch (e: any) {
+        console.error('[dashboard] Team seed failed:', e?.message)
+      }
+    }
     const savedSelectedTeams: string[] = prefsSnap.exists
       ? (prefsSnap.data()?.selectedTeams ?? [])
       : []

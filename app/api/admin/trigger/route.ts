@@ -5,7 +5,7 @@ import { currentWeekLabel } from '@/lib/utils'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-export const maxDuration = 60
+export const maxDuration = 300 // stories run sequentially ~90s; needs Pro/above
 
 export async function POST(req: NextRequest) {
   try {
