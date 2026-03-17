@@ -89,7 +89,13 @@ export async function generateAndUpsertStories(weekLabel: string) {
 
   // Sequential — not concurrent. Concurrent hits Anthropic rate limits
   // and silently kills all but the first 1-2 stories.
+  // Skip teams whose story already exists this week (daily cron re-runs are fixtures-only).
   for (const team of PRIORITY_TEAMS) {
+    const existing = await adminDb.collection('stories').doc(`${team.id}-${weekLabel}`).get()
+    if (existing.exists) {
+      console.log(`⏭ Story already exists for ${team.name} (${weekLabel}), skipping`)
+      continue
+    }
     // Build rich real-data context for this team
     const teamFixtures = fixturesContext[team.id] || []
     const leagueKey = team.league === 'Premier League' ? 'EPL'
@@ -177,6 +183,13 @@ Return ONLY a JSON array of 6 humor strings, no markdown fences.`
 
 export async function generateAndUpsertDigest(weekLabel: string) {
   try {
+    // Skip if digest already exists for this week
+    const existingDigest = await adminDb.collection('weeklyDigest').doc(weekLabel).get()
+    if (existingDigest.exists) {
+      console.log(`⏭ Digest already exists for ${weekLabel}, skipping`)
+      return
+    }
+
     // Pull this week's fixtures to give Claude real context
     const fixturesSnap = await adminDb.collection('fixtures').where('weekLabel', '==', weekLabel).get()
     const matchEvents = fixturesSnap.docs.map(d => {

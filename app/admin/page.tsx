@@ -48,8 +48,12 @@ export default function AdminPage() {
         <h1 style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: 22, fontWeight: 700, color: '#e0e0ee', marginBottom: 4 }}>
           Admin Trigger
         </h1>
+        <div style={{ ...mono, fontSize: 11, color: '#44ff88', background: '#44ff8810', border: '1px solid #44ff8830', borderRadius: 6, padding: '10px 14px', marginBottom: 16 }}>
+          ✓ Cron auto-runs daily at 06:00 EAT — you don't need to be here.
+        </div>
         <p style={{ ...mono, fontSize: 11, color: '#778899', marginBottom: 28 }}>
-          Runs the full cron: fixtures → standings → player stats → stories (×9 teams) → digest
+          Manual trigger only needed if something broke. Fixtures + standings always refresh.
+          AI stories + digest only generate once per week (skipped if already done).
         </p>
 
         <label style={{ ...mono, fontSize: 11, color: '#778899', display: 'block', marginBottom: 8 }}>
@@ -78,7 +82,7 @@ export default function AdminPage() {
             cursor: running ? 'not-allowed' : 'pointer', transition: 'background 0.2s',
           }}
         >
-          {running ? '⏳ Running — takes ~90s (9 teams sequential)…' : '▶ Run Cron Now'}
+          {running ? '⏳ Running… (fixtures → standings → stories → digest)' : '▶ Force Run Cron'}
         </button>
 
         {running && (
