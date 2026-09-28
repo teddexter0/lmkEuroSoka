@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { fetchAndUpsertFixtures, fetchAndUpsertStandings, fetchAndUpsertPlayerStats } from '@/lib/football-api'
-import { generateAndUpsertStories, generateAndUpsertDigest } from '@/lib/gemini'
+import { generateAndUpsertStories, generateAndUpsertDigest } from '@/lib/editorial'
 import { currentWeekLabel } from '@/lib/utils'
 
 export const runtime = 'nodejs'

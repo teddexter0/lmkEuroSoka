@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import type { Team, Fixture, Story, PlayerStat, WeeklyDigest } from '@/types'
+import type { Team, Fixture, Story, PlayerStat, WeeklyDigest, StandingRow } from '@/types'
 import { LEAGUE_THEMES, currentWeekLabel } from '@/lib/utils'
 
 import LeagueNav       from './LeagueNav'
@@ -34,15 +34,21 @@ export default function Dashboard() {
   const DEFAULT_SELECTED = ['MUN','BAR','ARS','MCI','LFC','CFC','TOT','NEW','FUL','BRI','BOU','CRY','ATM','RMA','PSG','BMU','BVB','LEV','INT','ACM','JUV','ASM']
   const [selected, setSelected]   = useState<string[]>(DEFAULT_SELECTED)
   const [loading, setLoading]     = useState(true)
+  const [error, setError]         = useState('')
+  const [reloadToken, setReloadToken] = useState(0)
+  const [standings, setStandings] = useState<Record<string, StandingRow[]>>({})
 
   const theme = LEAGUE_THEMES[activeLeague] || LEAGUE_THEMES.EPL
 
   // Load all data
   useEffect(() => {
+    const controller = new AbortController()
     setLoading(true)
-    fetch(`/api/dashboard?week=${encodeURIComponent(weekLabel)}`)
+    setError('')
+    fetch(`/api/dashboard?week=${encodeURIComponent(weekLabel)}`, { signal: controller.signal })
       .then(async r => {
         const data = await r.json()
+        if (!r.ok) throw new Error(data.error || 'Dashboard refresh failed')
         setTeams(data.teams ?? [])
         setFixtures((data.fixtures ?? []).map((f: any) => ({
           ...f,
@@ -52,22 +58,24 @@ export default function Dashboard() {
         setDigest(data.digest ?? null)
         setPrevWeeks(data.prevWeeks ?? [])
         setStats(data.stats ?? [])
-        // Load saved team selection if available
-        if (data.selectedTeams?.length > 0) setSelected(data.selectedTeams)
-        if (!r.ok) console.error('[dashboard] API error:', data.error)
+        setStandings(data.standings ?? {})
+        const saved = window.localStorage.getItem('lmkeurosoka:selected-teams')
+        if (saved) {
+          const parsed = JSON.parse(saved)
+          if (Array.isArray(parsed)) setSelected(parsed)
+        } else if (data.selectedTeams?.length > 0) setSelected(data.selectedTeams)
       })
-      .catch(e => console.error('[dashboard] fetch failed:', e))
+      .catch(e => {
+        if (e.name !== 'AbortError') setError(e.message || 'Could not load football data')
+      })
       .finally(() => setLoading(false))
-  }, [weekLabel])
+    return () => controller.abort()
+  }, [weekLabel, reloadToken])
 
   // Handle team selection changes
-  async function handleSelectionChange(ids: string[]) {
+  function handleSelectionChange(ids: string[]) {
     setSelected(ids)
-    fetch('/api/dashboard', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ selectedTeams: ids }),
-    }).catch(e => console.warn('Could not save preferences:', e))
+    window.localStorage.setItem('lmkeurosoka:selected-teams', JSON.stringify(ids))
   }
 
   return (
@@ -154,6 +162,13 @@ export default function Dashboard() {
       ) : (
         <div style={{ maxWidth: 860, margin: '0 auto', padding: '16px' }}>
 
+          {error && (
+            <div style={{ marginBottom: 16, padding: 14, border: '1px solid #ff6b6b55', borderRadius: 8, background: '#2a1018', color: '#ffb3b3' }}>
+              <p style={{ fontSize: 13, marginBottom: 8 }}>{error}</p>
+              <button onClick={() => setReloadToken(value => value + 1)} style={{ background: '#ff6b6b', color: '#12070a', border: 0, borderRadius: 5, padding: '7px 12px', cursor: 'pointer', fontWeight: 700 }}>Retry</button>
+            </div>
+          )}
+
           {/* FIXTURES TAB */}
           {activeTab === 'FIXTURES' && (
             <div>
@@ -208,7 +223,7 @@ export default function Dashboard() {
 
           {/* TABLE TAB */}
           {activeTab === 'TABLE' && (
-            <StandingsTable activeLeague={activeLeague} ready={!loading} />
+            <StandingsTable activeLeague={activeLeague} rows={standings[activeLeague] ?? []} selectedTeams={selected} />
           )}
 
           {/* UCL TAB */}

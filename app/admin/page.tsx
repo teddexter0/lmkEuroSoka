@@ -49,7 +49,7 @@ export default function AdminPage() {
           Admin Trigger
         </h1>
         <div style={{ ...mono, fontSize: 11, color: '#44ff88', background: '#44ff8810', border: '1px solid #44ff8830', borderRadius: 6, padding: '10px 14px', marginBottom: 16 }}>
-          ✓ Cron auto-runs daily at 06:00 EAT — you don't need to be here.
+          ✓ Cron auto-runs daily at 08:15 EAT — you don&apos;t need to be here.
         </div>
         <p style={{ ...mono, fontSize: 11, color: '#778899', marginBottom: 28 }}>
           Manual trigger only needed if something broke. Fixtures + standings always refresh.

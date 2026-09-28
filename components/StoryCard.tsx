@@ -40,7 +40,7 @@ export default function StoryCard({ story, teams }: Props) {
           </p>
           {!open && (
             <p style={{ fontSize: 12, color: '#778899', marginTop: 6, fontStyle: 'italic', lineHeight: 1.5 }}>
-              "{story.druryQuote.slice(0, 100)}..."
+              &ldquo;{story.druryQuote.slice(0, 100)}...&rdquo;
             </p>
           )}
         </div>
@@ -57,7 +57,7 @@ export default function StoryCard({ story, teams }: Props) {
             fontStyle: 'italic', color: '#aaaacc', fontSize: 14, lineHeight: 1.7,
             borderLeft: `3px solid ${color}`, paddingLeft: 12, margin: '0 0 16px',
           }}>
-            "{story.druryQuote}"
+            &ldquo;{story.druryQuote}&rdquo;
           </blockquote>
 
           {/* Stats bar */}
@@ -83,6 +83,16 @@ export default function StoryCard({ story, teams }: Props) {
               <p key={i}>{para}</p>
             ))}
           </div>
+          {!!story.sources?.length && (
+            <div style={{ borderTop: '1px solid #1c1c2e', marginTop: 16, paddingTop: 12 }}>
+              <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, color: '#555577', marginBottom: 8 }}>SOURCES</p>
+              {story.sources.slice(0, 6).map(source => (
+                <a key={source.url} href={source.url} target="_blank" rel="noreferrer" style={{ display: 'block', color: '#8899ff', fontSize: 12, lineHeight: 1.5, marginBottom: 6 }}>
+                  {source.source}: {source.title}
+                </a>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

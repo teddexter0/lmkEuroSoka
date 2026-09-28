@@ -60,6 +60,7 @@ export interface Story {
   statsJson: string[]
   weekLabel: string
   isActive: boolean
+  sources?: Array<{ title: string; url: string; source: string; publishedAt: string }>
 }
 
 export interface PlayerStat {
