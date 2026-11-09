@@ -10,7 +10,7 @@ const TEAM_IDS:Record<string,string>={
 function teamId(name:string):string{return TEAM_IDS[name] || name.replace(/[^a-z]/gi,'').slice(0,3).toUpperCase()}
 function seasonLabel(date=new Date()):string{const start=date.getUTCMonth()>=6?date.getUTCFullYear():date.getUTCFullYear()-1;return `${start}-${start+1}`}
 async function sportsDb(path:string){
-  const response=await fetch(`https://www.thesportsdb.com/api/v1/json/3/${path}`,{next:{revalidate:900},headers:{Accept:'application/json'},signal:AbortSignal.timeout(12_000)})
+  const response=await fetch(`https://www.thesportsdb.com/api/v1/json/123/${path}`,{next:{revalidate:900},headers:{Accept:'application/json'},signal:AbortSignal.timeout(12_000)})
   if(!response.ok) throw new Error(`TheSportsDB returned ${response.status}`)
   return response.json()
 }

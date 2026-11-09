@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import type { Team, Fixture, Story, PlayerStat, WeeklyDigest, StandingRow } from '@/types'
-import { LEAGUE_THEMES, currentWeekLabel } from '@/lib/utils'
+import { LEAGUE_THEMES } from '@/lib/utils'
 
 import LeagueNav       from './LeagueNav'
 import FixtureList     from './FixtureList'
@@ -19,10 +19,10 @@ import UCLBracket      from './UCLBracket'
 type Tab = 'FIXTURES' | 'STORIES' | 'STATS' | 'TABLE' | 'UCL' | 'HUMOR'
 const TABS: Tab[] = ['FIXTURES', 'STORIES', 'STATS', 'TABLE', 'UCL', 'HUMOR']
 
-export default function Dashboard() {
+export default function Dashboard({ initialWeekLabel }: { initialWeekLabel: string }) {
   const [activeLeague, setActiveLeague]   = useState('EPL')
   const [activeTab, setActiveTab]         = useState<Tab>('FIXTURES')
-  const [weekLabel, setWeekLabel]         = useState(currentWeekLabel())
+  const [weekLabel, setWeekLabel]         = useState(initialWeekLabel)
   const [prevWeeks, setPrevWeeks]         = useState<string[]>([])
   const [showSelector, setShowSelector]   = useState(false)
 
@@ -59,16 +59,22 @@ export default function Dashboard() {
         setPrevWeeks(data.prevWeeks ?? [])
         setStats(data.stats ?? [])
         setStandings(data.standings ?? {})
-        const saved = window.localStorage.getItem('lmkeurosoka:selected-teams')
-        if (saved) {
-          const parsed = JSON.parse(saved)
-          if (Array.isArray(parsed)) setSelected(parsed)
-        } else if (data.selectedTeams?.length > 0) setSelected(data.selectedTeams)
+        try {
+          const saved = window.localStorage.getItem('lmkeurosoka:selected-teams')
+          if (saved) {
+            const parsed = JSON.parse(saved)
+            if (Array.isArray(parsed)) setSelected(parsed)
+          } else if (data.selectedTeams?.length > 0) setSelected(data.selectedTeams)
+        } catch {
+          window.localStorage.removeItem('lmkeurosoka:selected-teams')
+        }
       })
       .catch(e => {
         if (e.name !== 'AbortError') setError(e.message || 'Could not load football data')
       })
-      .finally(() => setLoading(false))
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false)
+      })
     return () => controller.abort()
   }, [weekLabel, reloadToken])
 
@@ -128,7 +134,7 @@ export default function Dashboard() {
         </div>
 
         {/* History ticker */}
-        {digest?.historyFacts && <HistoryTicker facts={digest.historyFacts} />}
+        {digest?.historyFacts && <HistoryTicker facts={digest.historyFacts} dateKey={weekLabel} />}
 
         {/* League nav */}
         <LeagueNav active={activeLeague} onChange={setActiveLeague} />
@@ -218,6 +224,9 @@ export default function Dashboard() {
                 return teamLeague === activeLeague && selected.includes(s.teamId)
               })}
               teams={teams}
+              standings={standings[activeLeague] ?? []}
+              fixtures={fixtures.filter(fixture => fixture.league === activeLeague)}
+              selectedTeams={selected}
             />
           )}
 

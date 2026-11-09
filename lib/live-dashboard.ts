@@ -30,4 +30,4 @@ export const getLiveDashboard=unstable_cache(async(weekLabel:string)=>{
     prevWeeks:[weekLabel],stats:[],selectedTeams:[],
     refresh:{success:Boolean(fixtures.length),provider:'thesportsdb+google-news',completedAt:new Date().toISOString()},
   }
-},['live-dashboard-v2'],{revalidate:1800,tags:['live-dashboard']})
+},['live-dashboard-v3'],{revalidate:1800,tags:['live-dashboard']})

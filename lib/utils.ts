@@ -11,14 +11,17 @@ export const LEAGUE_THEMES: Record<string, LeagueTheme> = {
 
 export function getWeekLabel(date = new Date()): string {
   const months = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec']
-  return `${months[date.getMonth()]}-${date.getDate()}-${date.getFullYear()}`
+  return `${months[date.getUTCMonth()]}-${date.getUTCDate()}-${date.getUTCFullYear()}`
 }
 
-export function currentWeekLabel(): string {
-  const d = new Date()
-  const day = d.getDay() // 0=Sun, 1=Mon...
-  // Roll back to Monday (if Sunday roll back 6 days, otherwise roll back day-1)
-  d.setDate(d.getDate() - (day === 0 ? 6 : day - 1))
+export function currentWeekLabel(now = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Nairobi', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(now)
+  const value = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find(part => part.type === type)?.value)
+  const d = new Date(Date.UTC(value('year'), value('month') - 1, value('day')))
+  const day = d.getUTCDay()
+  d.setUTCDate(d.getUTCDate() - (day === 0 ? 6 : day - 1))
   return getWeekLabel(d)
 }
 

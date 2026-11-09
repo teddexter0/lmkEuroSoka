@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
-const CBS_CHANNEL = 'UCcJ6L_EM3H3NLZE7DJDe1g'
+const CBS_CHANNEL = 'UCET00YnetHT7tOpu12v8jxg'
+const CHANNEL_URL = 'https://www.youtube.com/@CBSSportsGolazo'
 const PLAYLIST_URL = 'https://www.youtube.com/playlist?list=PLEbJmiPaOw7PfMkNcJKLPJm08rLUFhpPM'
 
 function xmlValue(entry: string, tag: string): string {
@@ -19,9 +20,9 @@ export async function GET() {
       return { videoId, title: xmlValue(match[1], 'title'), thumbnail: `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`, publishedAt: xmlValue(match[1], 'published') }
     }).filter(video => video.videoId)
     const video = videos.find(item => /golazo|champions league|ucl/i.test(item.title)) || videos[0] || null
-    return NextResponse.json({ video, playlistUrl: PLAYLIST_URL }, { headers: { 'Cache-Control': 'public, s-maxage=1800, stale-while-revalidate=86400' } })
+    return NextResponse.json({ video, channelUrl: CHANNEL_URL, playlistUrl: PLAYLIST_URL }, { headers: { 'Cache-Control': 'public, s-maxage=1800, stale-while-revalidate=86400' } })
   } catch (error) {
     console.warn('[/api/youtube] feed unavailable:', error)
-    return NextResponse.json({ video: null, playlistUrl: PLAYLIST_URL }, { headers: { 'Cache-Control': 'public, s-maxage=300' } })
+    return NextResponse.json({ video: null, channelUrl: CHANNEL_URL, playlistUrl: PLAYLIST_URL }, { headers: { 'Cache-Control': 'public, s-maxage=300' } })
   }
 }

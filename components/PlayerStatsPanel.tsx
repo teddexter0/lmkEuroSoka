@@ -1,7 +1,14 @@
 'use client'
-import type { PlayerStat, Team } from '@/types'
+import type { Fixture, PlayerStat, StandingRow, Team } from '@/types'
+import FormDots from './FormDots'
 
-interface Props { stats: PlayerStat[]; teams: Team[] }
+interface Props {
+  stats: PlayerStat[]
+  teams: Team[]
+  standings: StandingRow[]
+  fixtures: Fixture[]
+  selectedTeams: string[]
+}
 
 function StatRow({ label, players, valueKey, suffix = '' }: {
   label: string
@@ -27,13 +34,55 @@ function StatRow({ label, players, valueKey, suffix = '' }: {
   )
 }
 
-export default function PlayerStatsPanel({ stats, teams }: Props) {
+export default function PlayerStatsPanel({ stats, teams, standings, fixtures, selectedTeams }: Props) {
   const teamIds = [...new Set(stats.map(s => s.teamId))]
 
   if (!stats.length) {
+    const followedRows = standings.filter(row => selectedTeams.length === 0 || selectedTeams.includes(row.teamId))
+    if (!followedRows.length) {
+      return (
+        <div style={{ textAlign: 'center', padding: 48, color: '#666688' }}>
+          <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>No current team form is available for the selected clubs.</p>
+        </div>
+      )
+    }
+
     return (
-      <div style={{ textAlign: 'center', padding: 48, color: '#444466' }}>
-        <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>Player data loads after first cron run or seed.</p>
+      <div>
+        <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, color: '#666688', letterSpacing: '0.1em', marginBottom: 12 }}>
+          TEAM FORM · FREE LIVE FEED
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
+          {followedRows.map(row => {
+            const team = teams.find(item => item.id === row.teamId)
+            const teamFixtures = fixtures.filter(fixture => fixture.homeTeamId === row.teamId || fixture.awayTeamId === row.teamId)
+            const latest = teamFixtures.find(fixture => fixture.status === 'live') || teamFixtures.find(fixture => fixture.status === 'scheduled') || teamFixtures.at(-1)
+            const fixtureLabel = latest?.status === 'scheduled' ? 'Next' : latest?.status === 'live' ? 'Live' : 'Latest'
+            return (
+              <div key={row.teamId} style={{ background: '#0a0a14', border: `1px solid ${team?.colorPrimary || '#8899ff'}33`, borderRadius: 10, padding: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                  {team?.badgeUrl && <img src={team.badgeUrl} alt="" style={{ width: 28, height: 28, objectFit: 'contain' }} />}
+                  <div>
+                    <p style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 700, fontSize: 15, color: '#e0e0ee' }}>{row.team}</p>
+                    <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, color: '#778899' }}>#{row.rank} · {row.pts} PTS</p>
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 4, textAlign: 'center', marginBottom: 12 }}>
+                  {[['P', row.w + row.d + row.l], ['W', row.w], ['D', row.d], ['L', row.l], ['GD', row.gd]].map(([label, value]) => (
+                    <div key={label} style={{ background: '#0d0d1f', borderRadius: 5, padding: '7px 2px' }}>
+                      <p style={{ fontFamily: 'JetBrains Mono, monospace', color: '#555577', fontSize: 9 }}>{label}</p>
+                      <p style={{ fontFamily: 'JetBrains Mono, monospace', color: '#d0d0e0', fontSize: 12, fontWeight: 700 }}>{value}</p>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                  <FormDots form={row.form || ''} />
+                  {latest && <span style={{ color: '#778899', fontSize: 10, textAlign: 'right' }}>{fixtureLabel}: {latest.homeName} vs {latest.awayName}</span>}
+                </div>
+              </div>
+            )
+          })}
+        </div>
       </div>
     )
   }

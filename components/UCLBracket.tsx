@@ -1,124 +1,89 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 type Leg = {
-  home: string; away: string
-  homeScore: number | null; awayScore: number | null
-  date: string; status: string; round: string
-}
-type Tie = {
-  home: string; away: string
-  leg1: Leg; leg2: Leg | null
-  round: string; done: boolean
+  home: string
+  away: string
+  homeScore: number | null
+  awayScore: number | null
+  date: string
+  status: string
+  round: string
 }
 
-const UCL_CALENDAR = [
-  ['R16 Leg 1', 'Mar 10–11'],
-  ['R16 Leg 2', 'Mar 17–18'],
-  ['QF Draw',   'Mar 21'],
-  ['QF Leg 1',  'Apr 7–8'],
-  ['QF Leg 2',  'Apr 14–15'],
-  ['SF Leg 1',  'Apr 28–29'],
-  ['SF Leg 2',  'May 5–6'],
-  ['FINAL',     'May 30 · Budapest'],
-]
+type Tie = {
+  id: string
+  home: string
+  away: string
+  leg1: Leg
+  leg2: Leg | null
+  round: string
+  done: boolean
+}
 
 function scoreStr(leg: Leg) {
   if (leg.status === 'FT') return `${leg.homeScore ?? '?'}-${leg.awayScore ?? '?'}`
-  if (leg.status === 'NS' || !leg.status) {
-    return new Date(leg.date).toLocaleDateString('en-KE', { timeZone: 'Africa/Nairobi', month: 'short', day: 'numeric' })
-  }
-  return `${leg.homeScore ?? '?'}-${leg.awayScore ?? '?'} LIVE`
+  return new Date(leg.date).toLocaleString('en-KE', {
+    timeZone: 'Africa/Nairobi', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+  })
 }
 
 export default function UCLBracket() {
   const [ties, setTies] = useState<Tie[]>([])
-  const [activeRound, setActiveRound] = useState('Round of 16')
+  const [activeRound, setActiveRound] = useState('League phase')
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    fetch('/api/ucl')
-      .then(r => r.json())
-      .then(data => {
-        if (data.ties?.length > 0) {
-          setTies(data.ties)
-          setActiveRound(data.activeRound || 'Round of 16')
-        }
+    const controller = new AbortController()
+    fetch('/api/ucl', { signal: controller.signal })
+      .then(async response => {
+        const data = await response.json()
+        if (!response.ok) throw new Error(data.error || 'Champions League feed unavailable')
+        setTies(data.ties ?? [])
+        setActiveRound(data.activeRound || 'League phase')
       })
-      .catch(() => {})
-      .finally(() => setLoading(false))
+      .catch(reason => {
+        if (reason.name !== 'AbortError') setError(reason.message || 'Champions League feed unavailable')
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false)
+      })
+    return () => controller.abort()
   }, [])
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 14 }}>
         <h2 style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: 18, fontWeight: 700, color: '#F5C842' }}>
-          ⭐ UCL — {activeRound}
+          ⭐ Champions League
         </h2>
-        <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: '#444466' }}>
-          Final: Budapest · May 30
-        </span>
+        <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, color: '#666688', textAlign: 'right' }}>{activeRound}</span>
       </div>
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: 32 }}>
-          <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: '#444466' }}>Loading UCL fixtures...</p>
-        </div>
+        <div style={{ textAlign: 'center', padding: 32 }}><p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: '#666688' }}>Loading current UCL matches...</p></div>
+      ) : error ? (
+        <div style={{ padding: 18, background: '#1a0a10', borderRadius: 8, border: '1px solid #ff6b6b44', color: '#ffb3b3', fontSize: 12 }}>{error}</div>
       ) : ties.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 32, background: '#0a0a14', borderRadius: 8, border: '1px solid #1c1c2e' }}>
-          <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: '#444466' }}>
-            UCL knockout fixtures unavailable right now.
-          </p>
+          <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: '#666688' }}>No Champions League matches are published in the current feed window.</p>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 10 }}>
-          {ties.map((tie, i) => (
-            <div key={i} style={{
-              background: '#0a0a14',
-              border: `1px solid ${tie.done ? '#44ff8828' : '#F5C84228'}`,
-              borderRadius: 8, padding: '12px 14px',
-              borderLeft: `3px solid ${tie.done ? '#44ff88' : '#F5C842'}`,
-            }}>
-              <div style={{ marginBottom: 8 }}>
-                <p style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 600, fontSize: 14, color: '#e0e0ee' }}>
-                  {tie.home} <span style={{ color: '#444466', fontWeight: 400 }}>vs</span> {tie.away}
-                </p>
-                <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 9, color: '#F5C842', marginTop: 2 }}>
-                  {tie.round?.toUpperCase()} {tie.done ? '· COMPLETED' : ''}
-                </p>
-              </div>
-              <div style={{ display: 'flex', gap: 14 }}>
-                <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11 }}>
-                  <span style={{ color: '#444466' }}>L1 </span>
-                  <span style={{ color: tie.leg1.status === 'FT' ? '#e0e0ee' : '#778899' }}>
-                    {scoreStr(tie.leg1)}
-                  </span>
-                </div>
-                {tie.leg2 && (
-                  <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11 }}>
-                    <span style={{ color: '#444466' }}>L2 </span>
-                    <span style={{ color: tie.leg2.status === 'FT' ? '#e0e0ee' : '#778899' }}>
-                      {scoreStr(tie.leg2)}
-                    </span>
-                  </div>
-                )}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 }}>
+          {ties.map(tie => (
+            <div key={tie.id} style={{ background: '#0a0a14', border: `1px solid ${tie.done ? '#44ff8828' : '#F5C84228'}`, borderRadius: 8, padding: '12px 14px', borderLeft: `3px solid ${tie.done ? '#44ff88' : '#F5C842'}` }}>
+              <p style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 600, fontSize: 14, color: '#e0e0ee' }}>
+                {tie.home} <span style={{ color: '#555577', fontWeight: 400 }}>vs</span> {tie.away}
+              </p>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 8 }}>
+                <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 9, color: '#F5C842' }}>{tie.round.toUpperCase()}</span>
+                <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: tie.done ? '#e0e0ee' : '#aaaacc' }}>{scoreStr(tie.leg1)}</span>
               </div>
             </div>
           ))}
         </div>
       )}
-
-      <div style={{ marginTop: 16, padding: '12px 14px', background: '#0a0a14', borderRadius: 8, border: '1px solid #F5C84228' }}>
-        <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, color: '#F5C842', marginBottom: 8 }}>📅 UCL CALENDAR</p>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
-          {UCL_CALENDAR.map(([stage, date]) => (
-            <div key={stage} style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-              <span style={{ color: '#778899', fontFamily: 'JetBrains Mono, monospace', fontSize: 10 }}>{stage}</span>
-              <span style={{ color: '#aaaacc', fontFamily: 'JetBrains Mono, monospace', fontSize: 10 }}>{date}</span>
-            </div>
-          ))}
-        </div>
-      </div>
     </div>
   )
 }

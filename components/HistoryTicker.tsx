@@ -1,14 +1,11 @@
 'use client'
 import type { HistoryFact } from '@/types'
 
-export default function HistoryTicker({ facts }: { facts: HistoryFact[] }) {
+export default function HistoryTicker({ facts, dateKey }: { facts: HistoryFact[]; dateKey: string }) {
   if (!facts.length) return null
 
-  // Show exactly 1 fact per calendar day — same fact all day, advances at midnight
-  const dayOfYear = Math.floor(
-    (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86_400_000
-  )
-  const fact = facts[dayOfYear % facts.length]
+  const stableIndex = [...dateKey].reduce((total, char) => total + char.charCodeAt(0), 0)
+  const fact = facts[stableIndex % facts.length]
 
   return (
     <div style={{
