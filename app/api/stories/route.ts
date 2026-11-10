@@ -3,7 +3,7 @@ import { isLeague, isWomen } from '@/lib/competitions'
 import { fetchTeamNews } from '@/lib/news'
 import { getLiveDashboard } from '@/lib/live-dashboard'
 import { currentWeekLabel, toEAT } from '@/lib/utils'
-import { scoreline } from '@/lib/curation'
+import { decidingGoal, scoreline } from '@/lib/curation'
 import type { Story } from '@/types'
 
 export const dynamic = 'force-dynamic'
@@ -49,10 +49,9 @@ export async function GET(request: NextRequest) {
   }).join(' · ')
   const placement = row ? `#${row.rank} in this competition with ${row.pts} points from ${row.w + row.d + row.l} matches.` : ''
   const title = latest ? latest.recap || `${scoreline(latest)} · ${outcome}` : next ? `${next.homeName} vs ${next.awayName}` : `${team.name} club desk`
-  const lastGoal = latest?.goals?.at(-1)
-  const goalNote = lastGoal && lastGoal.seconds >= 80 * 60 && latest &&
-    latest.goals?.length === latest.homeScore! + latest.awayScore!
-    ? `Late twist · ${lastGoal.player} scored the last goal at ${lastGoal.clock}.` : ''
+  const decisive = latest && decidingGoal(latest)
+  const goalNote = decisive && decisive.seconds >= 80 * 60
+    ? `Decisive moment · ${decisive.player} ${decisive.after === 0 ? 'equalised' : 'scored the winner'} at ${decisive.clock}.` : ''
   const body = [
     latest && `Last match · ${scoreline(latest)} in ${latest.competition}. ${placement}`.trim(),
     goalNote,

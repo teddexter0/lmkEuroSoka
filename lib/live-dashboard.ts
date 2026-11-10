@@ -20,4 +20,4 @@ export const getLiveDashboard = unstable_cache(async (weekLabel: string) => {
     refresh: { success: data.fixtures.length > 0 || Object.values(data.standings).some(rows => rows.length > 0),
       provider: 'ESPN / TheSportsDB standings fallback', completedAt: new Date().toISOString() },
   }
-}, ['live-dashboard-v4'], { revalidate: 900, tags: ['live-dashboard'] })
+}, ['live-dashboard-v5'], { revalidate: 900, tags: ['live-dashboard'] })

@@ -10,11 +10,11 @@ const DERBIES = [
   ['INT','JUV','Derby d’Italia'], ['PSG','OLM','Le Classique'],
 ]
 
-export function curateFixtures(fixtures: Fixture[], standings: Record<string, StandingRow[]>, selected: string[], now = Date.now()) {
+export function curateFixtures(fixtures: Fixture[], standings: Record<string, StandingRow[]>, selected: string[], now = Date.now(), days = 7) {
   const following = new Set(selected)
   return fixtures.flatMap(fixture => {
     const hours = (+fixture.matchDate - now) / 3_600_000
-    if (fixture.status === 'final' || hours > 168 || (fixture.status === 'scheduled' && hours < 0) ||
+    if (fixture.status === 'final' || hours > days * 24 || (fixture.status === 'scheduled' && hours < 0) ||
         (fixture.status === 'live' && hours < -4)) return []
     const ids = [fixture.homeTeamId, fixture.awayTeamId]
     const followed = ids.filter(id => following.has(id)).length
@@ -71,42 +71,45 @@ export function fixturePins(fixtures: Fixture[]) {
   }))
 }
 
+function goalTimeline(fixture: Fixture) {
+  if (fixture.status !== 'final' || fixture.homeScore == null || fixture.awayScore == null) return []
+  let home = 0
+  let away = 0
+  const timeline = (fixture.goals ?? []).flatMap(goal => {
+    const before = home - away
+    if (goal.teamId === fixture.homeTeamId) home++
+    else if (goal.teamId === fixture.awayTeamId) away++
+    else return []
+    return [{ ...goal, before, after: home - away, home, away }]
+  })
+  return home === fixture.homeScore && away === fixture.awayScore ? timeline : []
+}
+
+export function decidingGoal(fixture: Fixture) {
+  const finalOutcome = Math.sign((fixture.homeScore ?? 0) - (fixture.awayScore ?? 0))
+  return goalTimeline(fixture).filter(goal =>
+    Math.sign(goal.before) !== finalOutcome && Math.sign(goal.after) === finalOutcome).at(-1)
+}
+
 export function footballHumor(fixtures: Fixture[], selected: string[], now = Date.now()) {
-  const kinds = new Set<string>()
-  const lines: string[] = []
-  const finals = fixtures.filter(f => f.status === 'final' && f.homeScore != null && f.awayScore != null &&
-    +f.matchDate <= now && +f.matchDate >= now - 7 * 86_400_000)
+  const finals = fixtures.filter(match => match.status === 'final' &&
+    +match.matchDate <= now && +match.matchDate >= now - 7 * 86_400_000)
     .sort((a, b) => Number([b.homeTeamId, b.awayTeamId].some(id => selected.includes(id))) -
       Number([a.homeTeamId, a.awayTeamId].some(id => selected.includes(id))) || +b.matchDate - +a.matchDate)
-  for (const f of finals) {
-    const home = f.homeScore!
-    const away = f.awayScore!
-    const winner = home > away ? f.homeName : f.awayName
-    const loser = home > away ? f.awayName : f.homeName
-    let kind = ''
-    let line = ''
-    const lastGoal = f.goals?.at(-1)
-    if (lastGoal && f.goals?.length === home + away && Math.abs(home - away) === 1 && lastGoal.seconds >= 89 * 60 &&
-        lastGoal.teamId === (home > away ? f.homeTeamId : f.awayTeamId)) {
-      kind = 'late'
-      line = `${lastGoal.player}, ${lastGoal.clock}. ${loser} got as far as the group chat’s “we’ll take a point” message before ${winner} made them delete it.`
-    } else if (home === away && home >= 3) {
-      kind = 'shootout'
-      line = `${f.homeName} and ${f.awayName} traded ${home} goals each and still split the points. That's a whole group-stage goal difference spent on a handshake.`
-      if (isEuropeanCup(f.league)) line = `${f.homeName} and ${f.awayName} traded ${home} goals each. The highlights editor is asking for extra time.`
-    } else if (Math.abs(home - away) >= 3) {
-      kind = 'rout'
-      line = `${winner} won by ${Math.abs(home - away)}. ${loser} could probably file the replay under opposition scouting and skip their own clips.`
-    } else if (home + away >= 5 && Math.abs(home - away) === 1) {
-      kind = 'one-more'
-      line = `${loser} scored ${Math.min(home, away)} and still needed another. ${winner} evidently decided the clean-sheet bonus could wait.`
-    } else if (home === 0 && away === 0) {
-      kind = 'blank'
-      line = `The ${f.homeName}–${f.awayName} score graphic had one job and clocked out with exactly what it started with.`
-    }
-    if (line && !kinds.has(kind)) {
-      kinds.add(kind)
-      lines.push(`${scoreline(f)} — ${line}`)
+  const lines: string[] = []
+  for (const match of finals) {
+    const timeline = goalTimeline(match)
+    if (!timeline.length) continue
+    const deciding = decidingGoal(match)
+    const homeBehindTwice = timeline.filter(goal => goal.after === -2 && goal.before === -1).length >= 2
+    const awayBehindTwice = timeline.filter(goal => goal.after === 2 && goal.before === 1).length >= 2
+    const team = homeBehindTwice ? match.homeName : match.awayName
+    if (match.homeScore === match.awayScore && (homeBehindTwice || awayBehindTwice)) {
+      lines.push(`${scoreline(match)} · ${team} went two down, got back into it, then went two down again. Apparently the first comeback was a rehearsal.`)
+    } else if (deciding && deciding.seconds >= 89 * 60 && deciding.after !== 0) {
+      lines.push(`${scoreline(match)} · ${deciding.player} made it ${deciding.home}–${deciding.away} at ${deciding.clock}. Anyone who left to beat traffic got a different result.`)
+    } else if (deciding && deciding.seconds >= 89 * 60 && deciding.after === 0) {
+      lines.push(`${scoreline(match)} · ${deciding.player} equalised at ${deciding.clock}. The post-match victory draft can go back in drafts.`)
     }
     if (lines.length >= 4) break
   }

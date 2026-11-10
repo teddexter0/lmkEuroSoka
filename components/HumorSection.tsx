@@ -3,7 +3,7 @@
 interface Props { items: string[] }
 
 export default function HumorSection({ items }: Props) {
-  if (!items.length) return <p style={{ padding: 20, color: '#a5aec9' }}>No standout scorelines for the roast this week.</p>
+  if (!items.length) return <p style={{ padding: 20, color: '#a5aec9' }}>No verified late twists or big comebacks surfaced this week.</p>
   return (
     <div>
       <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, color: '#444466', letterSpacing: '0.12em', marginBottom: 12 }}>

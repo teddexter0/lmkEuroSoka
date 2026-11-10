@@ -7,9 +7,10 @@ interface Props {
   activeLeague: string
   selectedTeams: string[]
   curated?: boolean
+  emptyMessage?: string
 }
 
-export default function FixtureList({ fixtures, activeLeague, selectedTeams, curated = false }: Props) {
+export default function FixtureList({ fixtures, activeLeague, selectedTeams, curated = false, emptyMessage = 'No fixtures this week for selected teams.' }: Props) {
   const filtered = fixtures.filter(f => {
     if (curated || activeLeague === 'UCL') return f.league === activeLeague
     const leagueMatch = f.league === activeLeague
@@ -29,7 +30,7 @@ export default function FixtureList({ fixtures, activeLeague, selectedTeams, cur
   if (!sorted.length) {
     return (
       <div style={{ textAlign: 'center', padding: '48px 16px', color: '#444466' }}>
-        <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>No fixtures this week for selected teams.</p>
+        <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>{emptyMessage}</p>
       </div>
     )
   }

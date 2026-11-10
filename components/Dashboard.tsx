@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import type { Team, Fixture, Story, WeeklyDigest, StandingRow } from '@/types'
+import { isWomen, isEuropeanCup } from '@/lib/competitions'
 import { LEAGUE_THEMES } from '@/lib/utils'
 import { curateFixtures, fixturePins, fixtureShortlist, footballHumor } from '@/lib/curation'
 import StoriesPanel from './StoriesPanel'
@@ -92,8 +93,22 @@ export default function Dashboard({ initialWeekLabel }: { initialWeekLabel: stri
   ])
   const followedClubs = teams.filter(team => selected.includes(team.id) &&
     (team.league === activeLeague || competitionClubs.has(team.id)))
-  const curated = current ? curateFixtures(fixtures, standings, selected) : []
+  const now = Date.now()
+  const curated = current ? curateFixtures(fixtures, standings, selected, now) : []
   const shortlist = fixtureShortlist(curated)
+  const leaguePicks = curated.filter(match => match.league === activeLeague)
+  const nextMatch = current && !leaguePicks.length ? curateFixtures(fixtures, standings, selected, now, 14)
+    .filter(match => match.league === activeLeague).sort((a, b) => +a.matchDate - +b.matchDate)[0] : undefined
+  const recentResults = current ? fixtures.filter(match => match.league === activeLeague && match.status === 'final' &&
+    (selected.includes(match.homeTeamId) || selected.includes(match.awayTeamId))).slice(-5).reverse() : []
+  const hasLeagueFixtures = fixtures.some(match => match.league === activeLeague && match.status !== 'final' &&
+    +match.matchDate >= now && +match.matchDate <= now + 7 * 86_400_000)
+  const emptyWatchlist = unavailableSchedules.includes(activeLeague) ? 'The schedule feed for this competition is incomplete right now.'
+    : hasLeagueFixtures ? 'There are fixtures this week, but none match your watchlist.'
+    : 'This competition has no fixtures scheduled in the next seven days.'
+  const menOnPause = current && !unavailableSchedules.some(league => !isWomen(league) && !isEuropeanCup(league)) &&
+    !fixtures.some(match => !isWomen(match.league) && !isEuropeanCup(match.league) && match.status !== 'final' &&
+      +match.matchDate > now && +match.matchDate <= now + 7 * 86_400_000)
 
   return (
     <div style={{ minHeight: '100vh', background: '#07070f' }}>
@@ -193,6 +208,7 @@ export default function Dashboard({ initialWeekLabel }: { initialWeekLabel: stri
                 <h2 style={{ fontSize: 20, margin: '4px 0 2px' }}>Your next 7 days</h2>
                 <p style={{ fontSize: 13, color: '#a5aec9', marginBottom: 8 }}>Across Europe · followed clubs, rivalries and matches with stakes · EAT</p>
                 <PinnedFixtures fixtures={fixturePins(shortlist.men)} heading="Men’s picks" />
+                {menOnPause && <p style={{ color: '#a5aec9', fontSize: 13, marginBottom: 8 }}>The five men’s domestic leagues have no scheduled matches in this seven-day window.</p>}
                 <PinnedFixtures fixtures={fixturePins(shortlist.women)} heading="Women’s picks" />
                 {!curated.length && <p style={{ padding: '12px 0', color: '#a5aec9' }}>No matches meet your watchlist criteria in the next seven days.</p>}
                 {!!unavailableSchedules.length && <p style={{ color: '#b5bdd6', fontSize: 12, padding: '8px 0' }}>
@@ -200,7 +216,13 @@ export default function Dashboard({ initialWeekLabel }: { initialWeekLabel: stri
                 </p>}
               </>}
               <h2 style={{ fontSize: 16, margin: '20px 0 10px' }}>{theme.name} · {current ? 'Your watchlist' : 'Archived fixtures'}</h2>
-              <FixtureList fixtures={current ? curated : fixtures} activeLeague={activeLeague} selectedTeams={selected} curated={current} />
+              <FixtureList fixtures={current ? curated : fixtures} activeLeague={activeLeague} selectedTeams={selected}
+                curated={current} emptyMessage={current ? emptyWatchlist : undefined} />
+              {nextMatch && <PinnedFixtures fixtures={fixturePins([nextMatch])} heading="Next watchlist match after this window" />}
+              {!!recentResults.length && <>
+                <h2 style={{ fontSize: 16, margin: '20px 0 10px' }}>Recent results for your clubs</h2>
+                <FixtureList fixtures={recentResults} activeLeague={activeLeague} selectedTeams={selected} curated />
+              </>}
             </div>
           )}
 

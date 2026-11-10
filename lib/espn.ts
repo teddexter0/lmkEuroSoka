@@ -65,14 +65,24 @@ function dateKey(time: number) {
 export async function fetchEspnFixtures(league: League, weekLabel: string) {
   const now = Date.now()
   // ESPN's soccer feed rejects date ranges. A daily URL also lets overlapping weeks share cached responses.
-  const days = Array.from({ length: 16 }, (_, index) => dateKey(now + (index - 7) * DAY))
   const base = `${SITE}/${COMPETITIONS[league].espn}/scoreboard`
-  const daily = await Promise.allSettled(days.map(async (date, index) => {
-    const data = await json(`${base}?dates=${date}`, index === 7 ? 300 : 1800)
+  const getDays = (start: number, count: number) => Promise.allSettled(Array.from({ length: count }, async (_, index) => {
+    const offset = start + index
+    const date = dateKey(now + offset * DAY)
+    const data = await json(`${base}?dates=${date}`, offset === 0 ? 300 : 1800)
     if (!Array.isArray(data.events)) throw new Error('ESPN fixture feed has no events array')
     return data
   }))
-  const feeds = daily.flatMap(result => result.status === 'fulfilled' ? [result.value] : [])
+  const recentAndNext = await getDays(-7, 16)
+  const feeds = recentAndNext.flatMap(result => result.status === 'fulfilled' ? [result.value] : [])
+  const partial = feeds.length < recentAndNext.length
+  // Look past an international break or a gap between cup rounds only when the near-term schedule is empty.
+  if (feeds.length && !feeds.some(feed => feed.events.some((event: any) =>
+    Date.parse(event.date) > now && event.competitions?.[0]?.status?.type?.state === 'pre' &&
+    !/CANCEL|POSTPON|SUSPEND|ABANDON|TBD/i.test(event.competitions[0].status.type.name || '')))) {
+    const extended = await getDays(9, 6)
+    feeds.push(...extended.flatMap(result => result.status === 'fulfilled' ? [result.value] : []))
+  }
   if (!feeds.length) throw new Error('All ESPN schedule dates failed')
   const competition = feeds.find(feed => feed.leagues?.[0]?.name)?.leagues[0].name || league
   const events = new Map<string, any>(feeds.flatMap(feed => feed.events).map(event => [event.id, event]))
@@ -118,7 +128,7 @@ export async function fetchEspnFixtures(league: League, weekLabel: string) {
       refereeName: '', refereeNote: '', isDerby: false, isPinned: false, weekLabel,
     })
   }
-  return { fixtures, teams: [...clubs.values()], partial: feeds.length < days.length }
+  return { fixtures, teams: [...clubs.values()], partial }
 }
 
 export async function fetchEspnTable(league: League) {

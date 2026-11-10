@@ -1,6 +1,5 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { clubNameKey } from '@/lib/club-names'
 import type { PlayerMetric, SeasonPlayer } from '@/lib/player-stats'
 import type { Team } from '@/types'
 import ClubBadge from './ClubBadge'
@@ -8,7 +7,7 @@ import ClubBadge from './ClubBadge'
 const COLUMNS: Array<[PlayerMetric | 'contributions', string]> = [
   ['goals', 'G'], ['assists', 'A'], ['contributions', 'G+A'], ['minutesPlayed', 'Min'],
   ['appearances', 'Apps'], ['started', 'Starts'], ['yellowCards', 'YC'], ['redCards', 'RC'],
-  ['fouls', 'Fouls'], ['expectedGoals', 'xG'], ['keyPasses', 'Key passes'],
+  ['fouls', 'Fouls'], ['shots', 'Shots'], ['shotsOnTarget', 'On target'], ['keyPasses', 'Shot assists'],
   ['tackles', 'Tackles'], ['interceptions', 'Int'], ['cleanSheets', 'CS'], ['saves', 'Saves'],
 ]
 type Metric = typeof COLUMNS[number][0]
@@ -25,31 +24,45 @@ export default function PlayerStatsPanel({ league, teams }: { league: string; te
   const [data, setData] = useState<StatsResponse | null>(null)
   const [error, setError] = useState('')
   const [sort, setSort] = useState<Metric>('minutesPlayed')
-  const hasClubs = teams.length > 0
+  const [chosen, setChosen] = useState('')
+  const [retry, setRetry] = useState(0)
+  const available = teams.filter(team => team.espnId)
+  const team = available.find(team => team.espnId === chosen) ?? available[0]
+  const club = team?.espnId
 
   useEffect(() => {
-    if (!hasClubs) return
+    if (!club) return
+    setData(null)
+    setError('')
     const controller = new AbortController()
-    fetch(`/api/player-stats?league=${encodeURIComponent(league)}`, { signal: controller.signal })
+    fetch(`/api/player-stats?league=${encodeURIComponent(league)}&club=${encodeURIComponent(club)}`, { signal: controller.signal })
       .then(async response => {
         const payload = await response.json()
-        if (!response.ok) throw new Error(payload.error)
+        if (!response.ok) throw new Error(payload.error || 'Player stats could not load.')
         setData(payload)
       })
       .catch(err => { if (!controller.signal.aborted) setError(err.message) })
     return () => controller.abort()
-  }, [league, hasClubs])
+  }, [league, club, retry])
 
-  if (!hasClubs) return <p style={{ padding: 20 }}>Choose clubs in this competition under Your Clubs to see their players.</p>
-  if (error || !data) return <p role="status" style={{ padding: 20 }}>{error || 'Loading season player stats…'}</p>
+  if (!teams.length) return <p style={{ padding: 20 }}>Choose clubs in this competition under Your Clubs to see their players.</p>
+  if (!team) return <p style={{ padding: 20 }}>The player feed has no club IDs for this competition right now.</p>
+  const players = (data?.players ?? []).filter(player => player.clubId === club)
+    .sort((a, b) => (valueFor(b, sort) ?? -1) - (valueFor(a, sort) ?? -1) || a.name.localeCompare(b.name))
 
   return <div>
-    <p style={{ color: '#a5aec9', fontSize: 12, marginBottom: 14 }}>{data.season} · Competition totals · <a href={data.sourceUrl} target="_blank" rel="noreferrer" style={{ color: '#aab6ff' }}>Sofascore</a> · — means unreported</p>
-    {teams.map(team => {
-      const keys = [clubNameKey(team.name), clubNameKey(team.shortName)]
-      const players = data.players.filter(player => keys.includes(clubNameKey(player.club)))
-        .sort((a, b) => (valueFor(b, sort) ?? -1) - (valueFor(a, sort) ?? -1) || a.name.localeCompare(b.name))
-      return <section key={team.id} style={{ marginBottom: 20, padding: 12, border: '1px solid #252542', borderRadius: 10 }}>
+    <label style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 12 }}>
+      Followed club
+      <select value={club} onChange={event => { setData(null); setError(''); setChosen(event.target.value) }}
+        style={{ background: '#111128', color: '#e0e0ee', border: '1px solid #353554', borderRadius: 6, padding: 8 }}>
+        {available.map(item => <option key={item.id} value={item.espnId}>{item.name}</option>)}
+      </select>
+    </label>
+    {error ? <p role="status" style={{ padding: 20 }}>{error} <button onClick={() => setRetry(value => value + 1)}>Retry</button></p>
+      : !data ? <p role="status" style={{ padding: 20 }}>Loading season player stats…</p>
+      : <>
+        <p style={{ color: '#a5aec9', fontSize: 12, marginBottom: 14 }}>{data.season} · Competition totals · <a href={data.sourceUrl} target="_blank" rel="noreferrer" style={{ color: '#aab6ff' }}>ESPN</a> · — means unreported</p>
+      <section key={team.id} style={{ marginBottom: 20, padding: 12, border: '1px solid #252542', borderRadius: 10 }}>
         <h2 style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
           <ClubBadge name={team.name} url={team.badgeUrl} fallback={team.fallbackBadgeUrl} /> {team.name}
         </h2>
@@ -68,6 +81,6 @@ export default function PlayerStatsPanel({ league, teams }: { league: string; te
             </table>
           </div>}
       </section>
-    })}
+    </>}
   </div>
 }

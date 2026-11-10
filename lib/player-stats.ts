@@ -1,56 +1,96 @@
 import { unstable_cache } from 'next/cache'
 import { COMPETITIONS } from './competitions'
+import { fetchEspnTable } from './espn'
 import type { League } from '@/types'
 
-const FIELDS = [
-  'goals', 'assists', 'minutesPlayed', 'appearances', 'started', 'yellowCards', 'redCards',
-  'fouls', 'expectedGoals', 'keyPasses', 'tackles', 'interceptions', 'cleanSheets', 'saves',
-] as const
-export type PlayerMetric = typeof FIELDS[number]
+const METRICS = {
+  totalGoals: 'goals', goalAssists: 'assists', minutes: 'minutesPlayed',
+  appearances: 'appearances', starts: 'started', yellowCards: 'yellowCards',
+  redCards: 'redCards', foulsCommitted: 'fouls', shotAssists: 'keyPasses',
+  totalTackles: 'tackles', interceptions: 'interceptions', cleanSheet: 'cleanSheets',
+  saves: 'saves', totalShots: 'shots', shotsOnTarget: 'shotsOnTarget',
+} as const
+
+export type PlayerMetric = typeof METRICS[keyof typeof METRICS]
 export type SeasonPlayer = {
   id: string
+  clubId: string
   name: string
   club: string
   position: string
   metrics: Partial<Record<PlayerMetric, number>>
 }
 
-async function sofa(path: string) {
-  const response = await fetch(`https://www.sofascore.com/api/v1/${path}`, { signal: AbortSignal.timeout(5500) })
-  if (!response.ok) throw new Error(`Sofascore returned ${response.status}`)
+type EspnStat = { name: string; value?: number }
+type Splits = { categories?: Array<{ stats?: EspnStat[] }> }
+type Athlete = {
+  id: string
+  displayName: string
+  position?: { abbreviation?: string }
+  statistics?: { splits?: Splits }
+}
+
+const SITE = 'https://site.api.espn.com/apis/site/v2/sports/soccer'
+const CORE = 'https://sports.core.api.espn.com/v2/sports/soccer/leagues'
+const CACHE_SECONDS = 3600
+
+async function espnStats(url: string) {
+  const response = await fetch(url, { next: { revalidate: CACHE_SECONDS }, signal: AbortSignal.timeout(5500) })
+  if (!response.ok) throw new Error(`ESPN player feed returned ${response.status}`)
   return response.json()
 }
 
-export const getSeasonPlayers = unstable_cache(async (league: League, startYear: number) => {
-  const base = `unique-tournament/${COMPETITIONS[league].sofa}`
-  const data = await sofa(`${base}/seasons`)
-  const year = String(startYear).slice(-2)
-  const end = String(startYear + 1).slice(-2)
-  const season = data.seasons?.find((item: any) =>
-    [`${year}/${end}`, `${startYear}/${end}`, `${startYear}/${startYear + 1}`].includes(String(item.year)))
-  if (!season?.id) throw new Error('Current season is missing from the player feed')
-  const path = `${base}/season/${season.id}/statistics?limit=100&order=-minutesPlayed&accumulation=total&fields=${FIELDS.join(',')}`
-  const first = await sofa(`${path}&offset=0`)
-  if (!Array.isArray(first.results)) throw new Error('Player feed returned an unexpected response')
-  const pageCount = Number(first.pages ?? 1)
-  if (!Number.isInteger(pageCount) || pageCount < 0 || pageCount > 15) throw new Error('Invalid player feed pagination')
-  const pages = await Promise.all(Array.from({ length: Math.max(0, pageCount - 1) }, (_, i) =>
-    sofa(`${path}&offset=${(i + 1) * 100}`)))
-  const players = new Map<string, SeasonPlayer>()
-  for (const page of [first, ...pages]) {
-    if (!Array.isArray(page.results)) throw new Error('A player stats page is missing')
-    for (const row of page.results) {
-      if (!row.player?.id || !row.player.name || !row.team?.name) continue
-      const id = `${row.team.id}-${row.player.id}`
-      const metrics = Object.fromEntries(FIELDS.flatMap(field => {
-        const value = row[field] ?? row.statistics?.[field]
-        return typeof value === 'number' && Number.isFinite(value) ? [[field, value]] : []
-      }))
-      if (Object.keys(metrics).length) {
-        players.set(id, { id, name: row.player.name, club: row.team.name, position: row.player.position || '', metrics })
-      }
+function metricsFrom(splits?: Splits): SeasonPlayer['metrics'] {
+  const result: SeasonPlayer['metrics'] = {}
+  for (const category of splits?.categories ?? []) {
+    for (const stat of category.stats ?? []) {
+      const field = METRICS[stat.name as keyof typeof METRICS]
+      if (field && typeof stat.value === 'number' && Number.isFinite(stat.value)) result[field] = stat.value
     }
   }
-  return { players: [...players.values()], season: `${startYear}/${end}`,
-    sourceUrl: `https://www.sofascore.com/football/tournament/${COMPETITIONS[league].sofa}` }
-}, ['season-players-v1'], { revalidate: 21_600 })
+  return result
+}
+
+const getClubPlayers = unstable_cache(async (league: League, year: number, clubId: string, detailed: boolean) => {
+  const competition = COMPETITIONS[league].espn
+  const roster = await espnStats(`${SITE}/${competition}/teams/${clubId}/roster?season=${year}`)
+  if (String(roster.team?.id) !== clubId || roster.season?.year !== year || !Array.isArray(roster.athletes)) {
+    throw new Error('ESPN roster did not match the requested club and season')
+  }
+
+  const players: SeasonPlayer[] = (roster.athletes as Athlete[]).flatMap(athlete => {
+    const metrics = metricsFrom(athlete.statistics?.splits)
+    if (!athlete.id || !athlete.displayName || !Object.keys(metrics).length) return []
+    return [{
+      id: String(athlete.id), clubId, club: roster.team.displayName, name: athlete.displayName,
+      position: athlete.position?.abbreviation ?? '', metrics,
+    }]
+  })
+  if (!detailed) return players
+
+  const results = await Promise.allSettled(players.filter(player => (player.metrics.appearances ?? 0) > 0).map(async player => {
+    const totals = await espnStats(`${CORE}/${competition}/seasons/${year}/types/1/teams/${clubId}/athletes/${player.id}/statistics`)
+    const extra = metricsFrom(totals.splits)
+    // A player can have different totals across clubs or stages. Keep the roster figures authoritative.
+    const sameSample = (['appearances', 'goals', 'assists'] as const).every(metric =>
+      player.metrics[metric] === undefined || extra[metric] === player.metrics[metric])
+    if (sameSample) player.metrics = { ...extra, ...player.metrics }
+  }))
+  const failed = results.filter(result => result.status === 'rejected').length
+  if (failed) console.warn(`[player-stats] ${league}/${clubId} detailed feed unavailable for ${failed} players`)
+  return players
+}, ['espn-club-player-totals-v1'], { revalidate: CACHE_SECONDS })
+
+export async function getSeasonPlayers(league: League, year: number, clubId?: string) {
+  const ids = clubId ? [clubId] : (await fetchEspnTable(league)).teams.flatMap(team => team.espnId ? [team.espnId] : [])
+  const clubs = await Promise.allSettled(ids.map(id => getClubPlayers(league, year, id, Boolean(clubId))))
+  const players = clubs.flatMap(result => result.status === 'fulfilled' ? result.value : [])
+  if (!players.length && (!ids.length || clubs.every(result => result.status === 'rejected'))) {
+    throw new Error('No ESPN club player feeds were available')
+  }
+  return {
+    players, season: `${year}/${String(year + 1).slice(-2)}`, source: 'ESPN',
+    sourceUrl: clubId ? `https://www.espn.com/soccer/team/stats/_/id/${clubId}/league/${COMPETITIONS[league].espn}`
+      : `https://www.espn.com/soccer/stats/_/league/${COMPETITIONS[league].espn}`,
+  }
+}
