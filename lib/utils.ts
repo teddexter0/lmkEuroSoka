@@ -1,6 +1,9 @@
 import type { LeagueTheme } from '@/types'
 
 export const LEAGUE_THEMES: Record<string, LeagueTheme> = {
+  WSL:        { name: "Women's Super League", primary: '#291343', accent: '#ff9bde', textColor: '#fff3fb', badge: '' },
+  LIGA_F:     { name: 'Liga F', primary: '#3b134c', accent: '#d8a2ff', textColor: '#faf0ff', badge: '' },
+  UWCL:       { name: "Women's Champions League", primary: '#14234f', accent: '#91dfff', textColor: '#e8f7ff', badge: '' },
   EPL:        { name: 'Premier League',    primary: '#3D195B', accent: '#00FF85', textColor: '#E8F5E9', badge: '🏴󠁧󠁢󠁥󠁮󠁧󠁿' },
   LA_LIGA:    { name: 'La Liga',           primary: '#EE1111', accent: '#FFCC00', textColor: '#FFF8E1', badge: '🇪🇸' },
   BUNDESLIGA: { name: 'Bundesliga',        primary: '#D20515', accent: '#FFFFFF', textColor: '#FFFFFF', badge: '🇩🇪' },

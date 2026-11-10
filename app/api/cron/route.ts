@@ -22,12 +22,12 @@ export async function GET(req: Request) {
   if (missingFirebaseConfig().length) {
     const data = await getLiveDashboard(weekLabel)
     return NextResponse.json({
-      success: data.fixtures.length > 0,
+      success: data.refresh.success,
       weekLabel,
       mode: 'zero-config-live-cache',
       durationMs: Date.now() - startedAt,
-      results: { fixtures: data.fixtures.length, stories: data.stories.length, standings: Object.keys(data.standings).length },
-    }, { status: data.fixtures.length > 0 ? 200 : 503 })
+      results: { fixtures: data.fixtures.length, standings: Object.values(data.standings).filter(rows => rows.length > 0).length },
+    }, { status: data.refresh.success ? 200 : 503 })
   }
   const run = async (name: string, job: () => Promise<unknown>) => {
     const start = Date.now()

@@ -7,6 +7,7 @@ const CHANNEL_URL = 'https://www.youtube.com/@CBSSportsGolazo'
 export default function GolazoPanel() {
   const [video, setVideo] = useState<YoutubeVideo | null>(null)
   const [channelUrl, setChannelUrl] = useState(CHANNEL_URL)
+  const [status, setStatus] = useState('feed-unavailable')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -14,6 +15,7 @@ export default function GolazoPanel() {
       .then(r => r.json())
       .then(data => {
         setVideo(data.video ?? null)
+        setStatus(data.status)
         if (data.channelUrl) setChannelUrl(data.channelUrl)
       })
       .catch(() => {})
@@ -56,6 +58,7 @@ export default function GolazoPanel() {
         ) : video ? (
           <div>
             <iframe
+              title={video.title}
               src={`https://www.youtube.com/embed/${video.videoId}?rel=0`}
               style={{ width: '100%', aspectRatio: '16/9', borderRadius: 8, border: 'none' }}
               allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -65,24 +68,26 @@ export default function GolazoPanel() {
               <p style={{ fontSize: 13, color: '#aaaacc', lineHeight: 1.4, flex: 1 }}>{video.title}</p>
               {video.views != null && (
                 <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, color: '#778899', marginLeft: 12, whiteSpace: 'nowrap' }}>
-                  {video.views >= 1_000_000
-                    ? `${(video.views / 1_000_000).toFixed(1)}M views`
-                    : `${Math.round(video.views / 1000)}K views`}
+                  {Intl.NumberFormat('en', { notation: 'compact' }).format(video.views)} views
                 </span>
               )}
             </div>
+            {video.viewsPerHour != null && <p style={{ color: '#aab6ff', fontSize: 12, marginTop: 6 }}>
+              Top detected clip in the last 16h · {Math.round(video.viewsPerHour).toLocaleString()} views/hour since upload
+            </p>}
             <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, color: '#444466', marginTop: 4 }}>
               {new Date(video.publishedAt).toLocaleDateString('en-KE', { timeZone: 'Africa/Nairobi', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} EAT
             </p>
           </div>
         ) : (
-          /* No video hit 90k views in last 24h — go straight to channel */
+
           <div style={{ textAlign: 'center', padding: '32px 16px' }}>
             <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: '#444466', marginBottom: 6 }}>
-              No show above 100K views in the last 6 days.
+               {status === 'views-unavailable' ? 'YouTube has not published view counts for the recent panel clips.' :
+                status === 'feed-unavailable' ? 'The Golazo feed is temporarily unavailable.' : 'No qualifying UCL Today panel clip in the last 16 hours.'}
             </p>
             <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, color: '#333355', marginBottom: 20 }}>
-              Check back after UCL matchdays — or browse the channel.
+              Browse CBS Sports Golazo for earlier clips.
             </p>
             <a
               href={channelUrl}

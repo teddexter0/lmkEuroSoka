@@ -1,33 +1,23 @@
 import { unstable_cache } from 'next/cache'
-import { TEAMS_SEED } from './seed-data'
-import { fetchSportsDbFixtures, fetchSportsDbStandings } from './sportsdb'
-import { buildEditorialStories } from './editorial'
-import type { Fixture, WeeklyDigest } from '@/types'
+import { COMPETITIONS, isLeague } from './competitions'
+import { fetchEspnDashboard } from './espn'
+import { fetchSportsDbStandings } from './sportsdb'
 
-function digestFrom(fixtures:Fixture[],weekLabel:string):WeeklyDigest {
-  const upcoming=fixtures.filter(f=>f.status!=='final' && f.matchDate.getTime()>=Date.now()).slice(0,3)
-  const recent=fixtures.filter(f=>f.status==='final').slice(-6)
-  const featured=upcoming[0] || recent[recent.length-1]
-  return {
-    weekLabel,
-    pinnedFixtures:upcoming.map(f=>({label:`${f.homeName} vs ${f.awayName}`,date:f.matchDate.toLocaleString('en-KE',{timeZone:'Africa/Nairobi',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}),color:'#FFD700'})),
-    humorItems:recent.map(f=>`${f.homeName} ${f.homeScore}–${f.awayScore} ${f.awayName}: ninety minutes, one scoreline, and several group chats needing moderation.`),
-    wildcardTeamId:featured?.homeTeamId || 'MUN',
-    wildcardReason:featured?`${featured.homeName} vs ${featured.awayName} is the next fixture worth keeping on the radar.`:'Fresh fixtures will appear on the next automatic refresh.',
-    historyFacts:[],
+export const getLiveDashboard = unstable_cache(async (weekLabel: string) => {
+  const data = await fetchEspnDashboard(weekLabel)
+  const needsFallback = Object.entries(data.standings).some(([league, rows]) =>
+    isLeague(league) && COMPETITIONS[league].teams > 0 && rows.length < COMPETITIONS[league].teams)
+  if (needsFallback) {
+    const fallback = await fetchSportsDbStandings()
+    for (const [league, rows] of Object.entries(fallback)) {
+      if (isLeague(league) && rows.length === COMPETITIONS[league].teams && rows.length > data.standings[league].length) {
+        data.standings[league] = rows
+      }
+    }
   }
-}
-
-export const getLiveDashboard=unstable_cache(async(weekLabel:string)=>{
-  const [fixturesResult,standingsResult,storiesResult]=await Promise.allSettled([
-    fetchSportsDbFixtures(weekLabel),fetchSportsDbStandings(),buildEditorialStories(weekLabel,true),
-  ])
-  const fixtures=fixturesResult.status==='fulfilled'?fixturesResult.value:[]
-  const standings=standingsResult.status==='fulfilled'?standingsResult.value:{}
-  const stories=storiesResult.status==='fulfilled'?storiesResult.value:[]
   return {
-    teams:TEAMS_SEED,fixtures,standings,stories,digest:digestFrom(fixtures,weekLabel),
-    prevWeeks:[weekLabel],stats:[],selectedTeams:[],
-    refresh:{success:Boolean(fixtures.length),provider:'thesportsdb+google-news',completedAt:new Date().toISOString()},
+    ...data, stories: [], digest: null, prevWeeks: [weekLabel], stats: [], selectedTeams: [],
+    refresh: { success: data.fixtures.length > 0 || Object.values(data.standings).some(rows => rows.length > 0),
+      provider: 'ESPN / TheSportsDB standings fallback', completedAt: new Date().toISOString() },
   }
-},['live-dashboard-v3'],{revalidate:1800,tags:['live-dashboard']})
+}, ['live-dashboard-v4'], { revalidate: 900, tags: ['live-dashboard'] })

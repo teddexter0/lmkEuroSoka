@@ -3,7 +3,8 @@ import { useState } from 'react'
 import type { Team } from '@/types'
 import { LEAGUE_THEMES } from '@/lib/utils'
 
-const LEAGUE_ORDER = ['EPL', 'LA_LIGA', 'BUNDESLIGA', 'SERIE_A', 'LIGUE_1']
+import { LEAGUE_ORDER } from '@/lib/competitions'
+import ClubBadge from './ClubBadge'
 
 interface Props {
   teams: Team[]
@@ -14,6 +15,8 @@ interface Props {
 
 export default function TeamSelector({ teams, selected, onClose, onChange }: Props) {
   const [local, setLocal] = useState<string[]>(selected)
+  const [search, setSearch] = useState('')
+  const query = search.trim().toLowerCase()
 
   function toggle(id: string) {
     setLocal(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
@@ -56,8 +59,12 @@ export default function TeamSelector({ teams, selected, onClose, onChange }: Pro
 
       {/* Body */}
       <div style={{ padding: 20 }}>
+        <input aria-label="Find a club" type="search" placeholder="Find a club" value={search}
+          onChange={event => setSearch(event.target.value)}
+          style={{ padding: 10, width: '100%', maxWidth: 420, background: '#111128', border: '1px solid #353554', borderRadius: 6, marginBottom: 18 }} />
         {LEAGUE_ORDER.map(league => {
-          const leagueTeams = teams.filter(t => t.league === league)
+          const leagueTeams = teams.filter(t => t.league === league && (t.name.toLowerCase().includes(query) || t.shortName.toLowerCase().includes(query)))
+            .sort((a, b) => a.name.localeCompare(b.name))
           if (!leagueTeams.length) return null
           const theme = LEAGUE_THEMES[league]
           return (
@@ -85,11 +92,7 @@ export default function TeamSelector({ teams, selected, onClose, onChange }: Pro
                         textAlign: 'left',
                       }}
                     >
-                      {team.badgeUrl ? (
-                        <img src={team.badgeUrl} alt="" style={{ width: 22, height: 22, objectFit: 'contain', flexShrink: 0 }} />
-                      ) : (
-                        <div style={{ width: 22, height: 22, borderRadius: '50%', background: team.colorPrimary, flexShrink: 0 }} />
-                      )}
+                      <ClubBadge name={team.name} url={team.badgeUrl} fallback={team.fallbackBadgeUrl} size={22} />
                       <span style={{
                         fontFamily: 'Space Grotesk, sans-serif', fontSize: 12,
                         fontWeight: isSelected ? 700 : 400,

@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import type { Fixture } from '@/types'
+import ClubBadge from './ClubBadge'
 import WinProbBar from './WinProbBar'
 import { daysUntil, toEAT, tierLabel, tierColor } from '@/lib/utils'
 
@@ -21,6 +22,7 @@ export default function FixtureCard({ fixture }: { fixture: Fixture }) {
                  #0a0a14`
 
   const isResult = fixture.status === 'final'
+  const showScore = fixture.homeScore != null && fixture.awayScore != null
 
   return (
     <div
@@ -48,11 +50,12 @@ export default function FixtureCard({ fixture }: { fixture: Fixture }) {
       {/* Teams + score */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{ flex: 1, textAlign: 'right' }}>
+          <ClubBadge name={fixture.homeName} url={fixture.homeBadgeUrl} size={26} />
           <p style={{ fontSize: 15, fontFamily: 'Space Grotesk, sans-serif', fontWeight: 700, color: '#e0e0ee' }}>{fixture.homeName}</p>
         </div>
 
         <div style={{ textAlign: 'center', minWidth: 56 }}>
-          {isResult ? (
+          {showScore ? (
             <p style={{ fontSize: 22, fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: '#ffffff', letterSpacing: 2 }}>
               {fixture.homeScore} – {fixture.awayScore}
             </p>
@@ -67,6 +70,7 @@ export default function FixtureCard({ fixture }: { fixture: Fixture }) {
         </div>
 
         <div style={{ flex: 1, textAlign: 'left' }}>
+          <ClubBadge name={fixture.awayName} url={fixture.awayBadgeUrl} size={26} />
           <p style={{ fontSize: 15, fontFamily: 'Space Grotesk, sans-serif', fontWeight: 700, color: '#e0e0ee' }}>{fixture.awayName}</p>
         </div>
       </div>
@@ -76,8 +80,9 @@ export default function FixtureCard({ fixture }: { fixture: Fixture }) {
         {toEAT(fixture.matchDate)}
       </p>
 
+      {fixture.watchReason && <p style={{ textAlign: 'center', color: '#aab6ff', fontSize: 11, marginTop: 6 }}>{fixture.watchReason}</p>}
       {/* Win prob bar */}
-      {!isResult && (
+      {!isResult && fixture.winProbHome + fixture.winProbDraw + fixture.winProbAway > 0 && (
         <div style={{ marginTop: 10 }}>
           <WinProbBar
             home={fixture.winProbHome} draw={fixture.winProbDraw} away={fixture.winProbAway}

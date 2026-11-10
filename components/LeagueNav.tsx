@@ -1,7 +1,7 @@
 'use client'
 import { LEAGUE_THEMES } from '@/lib/utils'
 
-const LEAGUES = ['EPL', 'LA_LIGA', 'BUNDESLIGA', 'SERIE_A', 'LIGUE_1', 'UCL']
+import { LEAGUE_ORDER as LEAGUES } from '@/lib/competitions'
 
 interface Props { active: string; onChange: (l: string) => void }
 

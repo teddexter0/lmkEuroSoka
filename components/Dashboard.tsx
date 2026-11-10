@@ -1,7 +1,9 @@
 'use client'
 import { useState, useEffect } from 'react'
-import type { Team, Fixture, Story, PlayerStat, WeeklyDigest, StandingRow } from '@/types'
+import type { Team, Fixture, Story, WeeklyDigest, StandingRow } from '@/types'
 import { LEAGUE_THEMES } from '@/lib/utils'
+import { curateFixtures, fixturePins, fixtureShortlist, footballHumor } from '@/lib/curation'
+import StoriesPanel from './StoriesPanel'
 
 import LeagueNav       from './LeagueNav'
 import FixtureList     from './FixtureList'
@@ -10,7 +12,6 @@ import StandingsTable  from './StandingsTable'
 import PlayerStatsPanel from './PlayerStatsPanel'
 import PinnedFixtures  from './PinnedFixtures'
 import HistoryTicker   from './HistoryTicker'
-import WildcardCard    from './WildcardCard'
 import TeamSelector    from './TeamSelector'
 import HumorSection    from './HumorSection'
 import GolazoPanel     from './GolazoPanel'
@@ -29,13 +30,13 @@ export default function Dashboard({ initialWeekLabel }: { initialWeekLabel: stri
   const [teams, setTeams]         = useState<Team[]>([])
   const [fixtures, setFixtures]   = useState<Fixture[]>([])
   const [stories, setStories]     = useState<Story[]>([])
-  const [stats, setStats]         = useState<PlayerStat[]>([])
   const [digest, setDigest]       = useState<WeeklyDigest | null>(null)
   const DEFAULT_SELECTED = ['MUN','BAR','ARS','MCI','LFC','CFC','TOT','NEW','FUL','BRI','BOU','CRY','ATM','RMA','PSG','BMU','BVB','LEV','INT','ACM','JUV','ASM']
   const [selected, setSelected]   = useState<string[]>(DEFAULT_SELECTED)
   const [loading, setLoading]     = useState(true)
   const [error, setError]         = useState('')
   const [reloadToken, setReloadToken] = useState(0)
+  const [unavailableSchedules, setUnavailableSchedules] = useState<string[]>([])
   const [standings, setStandings] = useState<Record<string, StandingRow[]>>({})
 
   const theme = LEAGUE_THEMES[activeLeague] || LEAGUE_THEMES.EPL
@@ -57,8 +58,8 @@ export default function Dashboard({ initialWeekLabel }: { initialWeekLabel: stri
         setStories(data.stories ?? [])
         setDigest(data.digest ?? null)
         setPrevWeeks(data.prevWeeks ?? [])
-        setStats(data.stats ?? [])
         setStandings(data.standings ?? {})
+        setUnavailableSchedules(data.unavailableSchedules ?? [])
         try {
           const saved = window.localStorage.getItem('lmkeurosoka:selected-teams')
           if (saved) {
@@ -83,6 +84,16 @@ export default function Dashboard({ initialWeekLabel }: { initialWeekLabel: stri
     setSelected(ids)
     window.localStorage.setItem('lmkeurosoka:selected-teams', JSON.stringify(ids))
   }
+
+  const current = weekLabel === initialWeekLabel
+  const competitionClubs = new Set([
+    ...(standings[activeLeague] ?? []).map(row => row.teamId),
+    ...fixtures.filter(fixture => fixture.league === activeLeague).flatMap(f => [f.homeTeamId, f.awayTeamId]),
+  ])
+  const followedClubs = teams.filter(team => selected.includes(team.id) &&
+    (team.league === activeLeague || competitionClubs.has(team.id)))
+  const curated = current ? curateFixtures(fixtures, standings, selected) : []
+  const shortlist = fixtureShortlist(curated)
 
   return (
     <div style={{ minHeight: '100vh', background: '#07070f' }}>
@@ -127,8 +138,9 @@ export default function Dashboard({ initialWeekLabel }: { initialWeekLabel: stri
                 cursor: 'pointer', fontSize: 16,
               }}
               title="Select your clubs"
+              aria-label="Select your clubs"
             >
-              ⚙️
+              Your Clubs
             </button>
           </div>
         </div>
@@ -175,60 +187,35 @@ export default function Dashboard({ initialWeekLabel }: { initialWeekLabel: stri
             </div>
           )}
 
-          {/* FIXTURES TAB */}
           {activeTab === 'FIXTURES' && (
             <div>
-              {digest?.pinnedFixtures && <PinnedFixtures fixtures={digest.pinnedFixtures} />}
-              <WildcardCard digest={digest} teams={teams} />
-              <FixtureList fixtures={fixtures} activeLeague={activeLeague} selectedTeams={selected} />
+              {current && <>
+                <h2 style={{ fontSize: 20, margin: '4px 0 2px' }}>Your next 7 days</h2>
+                <p style={{ fontSize: 13, color: '#a5aec9', marginBottom: 8 }}>Across Europe · followed clubs, rivalries and matches with stakes · EAT</p>
+                <PinnedFixtures fixtures={fixturePins(shortlist.men)} heading="Men’s picks" />
+                <PinnedFixtures fixtures={fixturePins(shortlist.women)} heading="Women’s picks" />
+                {!curated.length && <p style={{ padding: '12px 0', color: '#a5aec9' }}>No matches meet your watchlist criteria in the next seven days.</p>}
+                {!!unavailableSchedules.length && <p style={{ color: '#b5bdd6', fontSize: 12, padding: '8px 0' }}>
+                  Schedule coverage may be incomplete for {unavailableSchedules.map(league => LEAGUE_THEMES[league].name).join(', ')}.
+                </p>}
+              </>}
+              <h2 style={{ fontSize: 16, margin: '20px 0 10px' }}>{theme.name} · {current ? 'Your watchlist' : 'Archived fixtures'}</h2>
+              <FixtureList fixtures={current ? curated : fixtures} activeLeague={activeLeague} selectedTeams={selected} curated={current} />
             </div>
           )}
 
-          {/* STORIES TAB */}
-          {activeTab === 'STORIES' && (() => {
-            const leagueStories = stories.filter(s => {
-              const teamLeague = teams.find(t => t.id === s.teamId)?.league
-              return teamLeague === activeLeague && (selected.includes(s.teamId) || selected.length === 0)
-            })
-            return (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {stories.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: 48 }}>
-                    <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, color: '#444466', marginBottom: 14 }}>
-                      No stories yet for this week.
-                    </p>
-                    <a href="/admin" style={{
-                      fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: '#8899ff',
-                      background: '#8899ff18', border: '1px solid #8899ff33',
-                      padding: '8px 16px', borderRadius: 6, textDecoration: 'none',
-                    }}>Run cron to generate stories →</a>
-                  </div>
-                ) : leagueStories.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: 48 }}>
-                    <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, color: '#444466' }}>
-                      No stories for {theme.name} teams this week.
-                    </p>
-                  </div>
-                ) : (
-                  leagueStories.map(s => <StoryCard key={s.id} story={s} teams={teams} />)
-                )}
-              </div>
-            )
-          })()}
+          {activeTab === 'STORIES' && (current
+            ? <StoriesPanel teams={followedClubs} league={activeLeague} />
+            : <div style={{ display: 'grid', gap: 12 }}>
+                {stories.filter(story => story.league === activeLeague && selected.includes(story.teamId))
+                  .map(story => <StoryCard key={story.id} story={story} teams={teams} />)}
+                {!stories.some(story => story.league === activeLeague && selected.includes(story.teamId)) &&
+                  <p style={{ padding: 20 }}>No archived stories for your clubs in this competition.</p>}
+              </div>)}
 
-          {/* STATS TAB */}
-          {activeTab === 'STATS' && (
-            <PlayerStatsPanel
-              stats={stats.filter(s => {
-                const teamLeague = teams.find(t => t.id === s.teamId)?.league
-                return teamLeague === activeLeague && selected.includes(s.teamId)
-              })}
-              teams={teams}
-              standings={standings[activeLeague] ?? []}
-              fixtures={fixtures.filter(fixture => fixture.league === activeLeague)}
-              selectedTeams={selected}
-            />
-          )}
+          {activeTab === 'STATS' && (current
+            ? <PlayerStatsPanel key={activeLeague} league={activeLeague} teams={followedClubs} />
+            : <p style={{ padding: 20 }}>Season player totals are available in the current dashboard.</p>)}
 
           {/* TABLE TAB */}
           {activeTab === 'TABLE' && (
@@ -238,7 +225,7 @@ export default function Dashboard({ initialWeekLabel }: { initialWeekLabel: stri
           {/* UCL TAB */}
           {activeTab === 'UCL' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <UCLBracket />
+              <UCLBracket key={activeLeague === "UWCL" ? "UWCL" : "UCL"} league={activeLeague === "UWCL" ? "UWCL" : "UCL"} />
               <GolazoPanel />
             </div>
           )}
@@ -246,7 +233,7 @@ export default function Dashboard({ initialWeekLabel }: { initialWeekLabel: stri
           {/* HUMOR TAB */}
           {activeTab === 'HUMOR' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <HumorSection items={digest?.humorItems || []} />
+              <HumorSection items={current ? footballHumor(fixtures, selected) : (digest?.humorItems ?? []).filter(item => !item.includes("several group chats needing moderation"))} />
             </div>
           )}
 

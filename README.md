@@ -4,11 +4,11 @@ A personal European football briefing that refreshes itself every morning at 08:
 
 ## What is automated
 
-- Fixtures, recent results, and tables come from TheSportsDB's free public feed by default. football-data.org and API-Football remain supported as optional upgrades.
-- Club news is collected from recent Google News RSS results and always displayed with source links.
-- Editorial rewriting uses the Gemini free tier when `GEMINI_API_KEY` is present, or Hugging Face when `HF_TOKEN` is present.
-- Without an AI key, the app still works: it creates a deterministic, source-attributed briefing instead of inventing content.
-- CBS/Golazo video discovery uses YouTube's public RSS feed, so no YouTube key is required.
+- The current dashboard uses ESPN's public soccer feeds for fixtures, results, tables, and badges. Domestic standings can fall back to a full TheSportsDB table if available.
+- The fixture watchlist ranks followed clubs, rivalries, close table matchups, and Champions League knockout games. Women’s coverage includes the WSL, Liga F, and UWCL.
+- Stories combine verified match data with source-linked club developments from recent Google News results. The live club desk works without an AI key.
+- The Stats tab uses Sofascore competition-season player totals. Availability varies by competition and metric.
+- Golazo uses the YouTube channel feed or the optional Data API and ranks eligible UCL Today panel uploads from the last 16 hours by lifetime views divided by hours since publication.
 - Vercel invokes `/api/cron` daily. Its authorization header is added automatically from `CRON_SECRET`.
 
 ## Configuration

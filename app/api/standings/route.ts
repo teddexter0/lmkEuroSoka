@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminDb } from '@/lib/firebase-admin'
 import { currentWeekLabel } from '@/lib/utils'
+import { isLeague } from '@/lib/competitions'
+import { getLiveDashboard } from '@/lib/live-dashboard'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
   const league = req.nextUrl.searchParams.get('league') ?? 'EPL'
+  if (!isLeague(league)) return NextResponse.json({ error: 'Unknown competition' }, { status: 400 })
   const weekLabel = currentWeekLabel()
+  const live = await getLiveDashboard(weekLabel)
+  const rows = live.standings[league]
+  if (rows?.length) return NextResponse.json({ rows, weekLabel, stale: false })
 
   try {
     const db = getAdminDb()

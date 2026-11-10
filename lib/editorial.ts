@@ -3,7 +3,8 @@ import { adminDb } from './firebase-admin'
 import { generateEditorial } from './ai'
 import { fetchTeamNews, type NewsItem } from './news'
 import { getAiConfig } from './config'
-import type { Story } from '@/types'
+import { footballHumor } from './curation'
+import type { Fixture, Story } from '@/types'
 
 const PRIORITY_TEAMS = [
   {id:'MUN',name:'Manchester United',league:'EPL',tag:'YOUR UNITED'},
@@ -30,12 +31,10 @@ ${evidence}
 Return JSON only: {"druryQuote":"one vivid but factual sentence","body":"3-5 paragraphs separated by \\n\\n"}`
 }
 
-function fallbackEditorial(teamName:string, articles:NewsItem[]) {
-  const lead=articles[0]
-  const lines=articles.slice(0,5).map(article=>`${article.source} reports: ${article.title}.`)
+function fallbackEditorial(articles:NewsItem[]) {
   return {
-    druryQuote: lead ? `${teamName}'s week is moving, and the headlines are setting the agenda.` : `${teamName}'s week awaits a reliable update.`,
-    body: lines.length ? `Here is the source-backed picture for ${teamName} this week.\n\n${lines.join('\n\n')}\n\nOpen the linked sources below for the full reporting; this briefing avoids filling gaps with speculation.` : `No reliable recent headlines were available during the latest refresh. The next automatic run will try again.`,
+    druryQuote: '',
+    body: articles.length ? '' : 'No recent club developments surfaced in the news feed.',
   }
 }
 
@@ -65,14 +64,14 @@ export async function buildEditorialStories(weekLabel:string, enhanceWithAi=true
   const outcomes=await mapWithConcurrency(PRIORITY_TEAMS,3,async team=>{
     try {
       const articles=await fetchTeamNews(team.name)
-      let editorial=fallbackEditorial(team.name,articles)
+      let editorial=fallbackEditorial(articles)
       if(enhanceWithAi && articles.length && ai.provider!=='fallback') {
         try { editorial=(await generateEditorial(promptFor(team.name,weekLabel,articles))) || editorial }
         catch(error){ console.warn(`[editorial] ${team.id} AI fallback:`,error) }
       }
       return {
         id:`${team.id}-${weekLabel}`,teamId:team.id,league:team.league,tag:team.tag,
-        title:`${team.name} — this week's briefing`,druryQuote:editorial.druryQuote,body:editorial.body,
+        title:articles[0]?.title || team.name,druryQuote:editorial.druryQuote,body:editorial.body,
         statsJson:[],sources:articles.map(({title,url,source,publishedAt})=>({title,url,source,publishedAt})),
         weekLabel,isActive:true,
       } satisfies Story
@@ -88,13 +87,12 @@ export async function generateAndUpsertDigest(weekLabel:string) {
   const snapshot=await adminDb.collection('fixtures').where('weekLabel','==',weekLabel).get()
   const fixtures=snapshot.docs.map(doc=>doc.data()).sort((a,b)=>a.matchDate.toMillis()-b.matchDate.toMillis())
   const upcoming=fixtures.filter(f=>f.status!=='final' && f.matchDate.toMillis()>=Date.now()).slice(0,3)
-  const recent=fixtures.filter(f=>f.status==='final').slice(-6)
   const pinnedFixtures=upcoming.map(f=>({
     label:`${f.homeName} vs ${f.awayName}`,
     date:new Date(f.matchDate.toMillis()).toLocaleString('en-KE',{timeZone:'Africa/Nairobi',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}),
     color:'#FFD700',
   }))
-  const humorItems=recent.map(f=>`${f.homeName} ${f.homeScore}–${f.awayScore} ${f.awayName}: ninety minutes, one scoreline, and several group chats needing moderation.`)
+  const humorItems=footballHumor(fixtures.map(f => ({ ...f, matchDate: f.matchDate.toDate() } as Fixture)), PRIORITY_TEAMS.map(team => team.id))
   const wildcard=PRIORITY_TEAMS.find(team=>fixtures.some(f=>f.homeTeamId===team.id || f.awayTeamId===team.id)) || PRIORITY_TEAMS[0]
   await adminDb.collection('weeklyDigest').doc(weekLabel).set({
     weekLabel,pinnedFixtures,humorItems,wildcardTeamId:wildcard.id,

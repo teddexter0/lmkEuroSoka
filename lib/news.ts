@@ -20,8 +20,8 @@ function tag(item: string, name: string): string {
   return match ? decodeXml(match[1].trim()) : ''
 }
 
-export async function fetchTeamNews(teamName: string, limit = 6): Promise<NewsItem[]> {
-  const query = encodeURIComponent(`"${teamName}" football when:7d`)
+export async function fetchTeamNews(teamName: string, limit = 6, women = false): Promise<NewsItem[]> {
+  const query = encodeURIComponent(`"${teamName.replace(/\b(women|femenino|femeni)\b/ig, "").trim()}" ${women ? "women football" : "football"} when:7d`)
   const url = `https://news.google.com/rss/search?q=${query}&hl=en-GB&gl=GB&ceid=GB:en`
   const response = await fetch(url, {
     headers: { 'User-Agent': 'lmkEuroSoka/1.0 (+https://lmkeurosoka.vercel.app)' },
@@ -32,7 +32,6 @@ export async function fetchTeamNews(teamName: string, limit = 6): Promise<NewsIt
 
   const xml = await response.text()
   return [...xml.matchAll(/<item>([\s\S]*?)<\/item>/gi)]
-    .slice(0, limit)
     .map(match => {
       const rawTitle = tag(match[1], 'title')
       const source = tag(match[1], 'source') || 'Google News'
@@ -44,5 +43,8 @@ export async function fetchTeamNews(teamName: string, limit = 6): Promise<NewsIt
         publishedAt: tag(match[1], 'pubDate'),
       }
     })
-    .filter(item => item.title && item.url)
+    .filter(item => {
+      const age = Date.now() - Date.parse(item.publishedAt)
+      return item.title && /^https:\/\//.test(item.url) && age >= 0 && age <= 7 * 86_400_000
+    }).slice(0, limit)
 }

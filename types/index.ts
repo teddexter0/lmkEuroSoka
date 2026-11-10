@@ -1,4 +1,4 @@
-export type League = 'EPL' | 'LA_LIGA' | 'BUNDESLIGA' | 'SERIE_A' | 'LIGUE_1' | 'UCL'
+export type League = 'EPL' | 'LA_LIGA' | 'BUNDESLIGA' | 'SERIE_A' | 'LIGUE_1' | 'UCL' | 'WSL' | 'LIGA_F' | 'UWCL'
 
 export interface LeagueTheme {
   name: string
@@ -16,6 +16,8 @@ export interface Team {
   colorPrimary: string
   colorSecondary: string
   badgeUrl: string
+  fallbackBadgeUrl?: string
+  espnId?: string
   isUserSelected: boolean
   tier: 'priority' | 'watch' | 'underdog'
   isWildcard: boolean
@@ -34,6 +36,13 @@ export interface Fixture {
   competition: string
   league: string
   matchDate: Date
+  homeBadgeUrl?: string
+  awayBadgeUrl?: string
+  round?: string
+  recap?: string
+  goals?: Array<{ teamId: string; player: string; clock: string; seconds: number }>
+  sourceUrl?: string
+  watchReason?: string
   status: 'scheduled' | 'live' | 'final'
   homeScore?: number
   awayScore?: number
@@ -58,6 +67,7 @@ export interface Story {
   druryQuote: string
   body: string
   statsJson: string[]
+  signals?: Array<{ label: string; title: string; url: string; source: string }>
   weekLabel: string
   isActive: boolean
   sources?: Array<{ title: string; url: string; source: string; publishedAt: string }>
@@ -84,6 +94,8 @@ export interface PinnedFixture {
   label: string
   date: string
   color: string
+  reason?: string
+  sourceUrl?: string
 }
 
 export interface HistoryFact {
@@ -104,6 +116,8 @@ export interface StandingRow {
   rank: number
   team: string
   teamId: string
+  badgeUrl?: string
+  fallbackBadgeUrl?: string
   pts: number
   w: number
   d: number
@@ -122,4 +136,5 @@ export interface YoutubeVideo {
   thumbnail: string
   publishedAt: string
   views?: number
+  viewsPerHour?: number
 }

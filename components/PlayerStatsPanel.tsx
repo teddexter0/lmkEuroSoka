@@ -1,147 +1,73 @@
 'use client'
-import type { Fixture, PlayerStat, StandingRow, Team } from '@/types'
-import FormDots from './FormDots'
+import { useEffect, useState } from 'react'
+import { clubNameKey } from '@/lib/club-names'
+import type { PlayerMetric, SeasonPlayer } from '@/lib/player-stats'
+import type { Team } from '@/types'
+import ClubBadge from './ClubBadge'
 
-interface Props {
-  stats: PlayerStat[]
-  teams: Team[]
-  standings: StandingRow[]
-  fixtures: Fixture[]
-  selectedTeams: string[]
+const COLUMNS: Array<[PlayerMetric | 'contributions', string]> = [
+  ['goals', 'G'], ['assists', 'A'], ['contributions', 'G+A'], ['minutesPlayed', 'Min'],
+  ['appearances', 'Apps'], ['started', 'Starts'], ['yellowCards', 'YC'], ['redCards', 'RC'],
+  ['fouls', 'Fouls'], ['expectedGoals', 'xG'], ['keyPasses', 'Key passes'],
+  ['tackles', 'Tackles'], ['interceptions', 'Int'], ['cleanSheets', 'CS'], ['saves', 'Saves'],
+]
+type Metric = typeof COLUMNS[number][0]
+
+function valueFor(player: SeasonPlayer, metric: Metric) {
+  const { goals, assists } = player.metrics
+  return metric === 'contributions'
+    ? (goals == null || assists == null ? undefined : goals + assists)
+    : player.metrics[metric]
 }
 
-function StatRow({ label, players, valueKey, suffix = '' }: {
-  label: string
-  players: PlayerStat[]
-  valueKey: keyof PlayerStat
-  suffix?: string
-}) {
-  const top5 = [...players].sort((a, b) => (b[valueKey] as number) - (a[valueKey] as number)).slice(0, 5)
-  return (
-    <div style={{ marginBottom: 14 }}>
-      <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, color: '#444466', letterSpacing: '0.1em', marginBottom: 6 }}>
-        {label}
-      </p>
-      {top5.map((p, i) => (
-        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #0f0f1e' }}>
-          <span style={{ fontSize: 12, color: '#c0c0d8' }}>{p.playerName}</span>
-          <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, color: '#e0e0ee', fontWeight: 600 }}>
-            {p[valueKey] as number}{suffix}
-          </span>
-        </div>
-      ))}
-    </div>
-  )
-}
+type StatsResponse = { players: SeasonPlayer[]; season: string; sourceUrl: string }
+export default function PlayerStatsPanel({ league, teams }: { league: string; teams: Team[] }) {
+  const [data, setData] = useState<StatsResponse | null>(null)
+  const [error, setError] = useState('')
+  const [sort, setSort] = useState<Metric>('minutesPlayed')
+  const hasClubs = teams.length > 0
 
-export default function PlayerStatsPanel({ stats, teams, standings, fixtures, selectedTeams }: Props) {
-  const teamIds = [...new Set(stats.map(s => s.teamId))]
+  useEffect(() => {
+    if (!hasClubs) return
+    const controller = new AbortController()
+    fetch(`/api/player-stats?league=${encodeURIComponent(league)}`, { signal: controller.signal })
+      .then(async response => {
+        const payload = await response.json()
+        if (!response.ok) throw new Error(payload.error)
+        setData(payload)
+      })
+      .catch(err => { if (!controller.signal.aborted) setError(err.message) })
+    return () => controller.abort()
+  }, [league, hasClubs])
 
-  if (!stats.length) {
-    const followedRows = standings.filter(row => selectedTeams.length === 0 || selectedTeams.includes(row.teamId))
-    if (!followedRows.length) {
-      return (
-        <div style={{ textAlign: 'center', padding: 48, color: '#666688' }}>
-          <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>No current team form is available for the selected clubs.</p>
-        </div>
-      )
-    }
+  if (!hasClubs) return <p style={{ padding: 20 }}>Choose clubs in this competition under Your Clubs to see their players.</p>
+  if (error || !data) return <p role="status" style={{ padding: 20 }}>{error || 'Loading season player stats…'}</p>
 
-    return (
-      <div>
-        <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, color: '#666688', letterSpacing: '0.1em', marginBottom: 12 }}>
-          TEAM FORM · FREE LIVE FEED
-        </p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
-          {followedRows.map(row => {
-            const team = teams.find(item => item.id === row.teamId)
-            const teamFixtures = fixtures.filter(fixture => fixture.homeTeamId === row.teamId || fixture.awayTeamId === row.teamId)
-            const latest = teamFixtures.find(fixture => fixture.status === 'live') || teamFixtures.find(fixture => fixture.status === 'scheduled') || teamFixtures.at(-1)
-            const fixtureLabel = latest?.status === 'scheduled' ? 'Next' : latest?.status === 'live' ? 'Live' : 'Latest'
-            return (
-              <div key={row.teamId} style={{ background: '#0a0a14', border: `1px solid ${team?.colorPrimary || '#8899ff'}33`, borderRadius: 10, padding: 16 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                  {team?.badgeUrl && <img src={team.badgeUrl} alt="" style={{ width: 28, height: 28, objectFit: 'contain' }} />}
-                  <div>
-                    <p style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 700, fontSize: 15, color: '#e0e0ee' }}>{row.team}</p>
-                    <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, color: '#778899' }}>#{row.rank} · {row.pts} PTS</p>
-                  </div>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 4, textAlign: 'center', marginBottom: 12 }}>
-                  {[['P', row.w + row.d + row.l], ['W', row.w], ['D', row.d], ['L', row.l], ['GD', row.gd]].map(([label, value]) => (
-                    <div key={label} style={{ background: '#0d0d1f', borderRadius: 5, padding: '7px 2px' }}>
-                      <p style={{ fontFamily: 'JetBrains Mono, monospace', color: '#555577', fontSize: 9 }}>{label}</p>
-                      <p style={{ fontFamily: 'JetBrains Mono, monospace', color: '#d0d0e0', fontSize: 12, fontWeight: 700 }}>{value}</p>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                  <FormDots form={row.form || ''} />
-                  {latest && <span style={{ color: '#778899', fontSize: 10, textAlign: 'right' }}>{fixtureLabel}: {latest.homeName} vs {latest.awayName}</span>}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 }}>
-      {teamIds.map(teamId => {
-        const team = teams.find(t => t.id === teamId)
-        const teamStats = stats.filter(s => s.teamId === teamId)
-        const injured = teamStats.filter(s => s.isInjured)
-        const scouting = teamStats.find(s => s.scoutingNote)
-        const color = team?.colorPrimary || '#8899FF'
-
-        return (
-          <div key={teamId} style={{
-            background: '#0a0a14', border: `1px solid ${color}28`,
-            borderRadius: 10, padding: 16,
-          }}>
-            {/* Team header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-              {team?.badgeUrl && (
-                <img src={team.badgeUrl} alt={team.name} style={{ width: 28, height: 28, objectFit: 'contain' }} />
-              )}
-              <div>
-                <p style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 700, fontSize: 15, color: '#e0e0ee' }}>{team?.name || teamId}</p>
-                <p style={{ fontSize: 11, color: '#778899', fontFamily: 'JetBrains Mono, monospace' }}>{team?.league?.replace('_', ' ')}</p>
-              </div>
-            </div>
-
-            <StatRow label="⚽ TOP GOALSCORERS" players={teamStats} valueKey="goals" />
-            <StatRow label="🅰️ TOP ASSISTERS"  players={teamStats} valueKey="assists" />
-            <StatRow label="📐 xG LEADERS"      players={teamStats} valueKey="xg" />
-            <StatRow label="🎯 CHANCES CREATED"  players={teamStats} valueKey="chancesCreated" />
-            <StatRow label="🔒 BALL RETENTION"   players={teamStats} valueKey="ballRetentionPct" suffix="%" />
-
-            {/* Injuries */}
-            {injured.length > 0 && (
-              <div style={{ marginTop: 14, background: '#1a0a0a', borderRadius: 6, padding: '10px 12px' }}>
-                <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, color: '#FF1744', marginBottom: 6 }}>🚑 INJURY LIST</p>
-                {injured.map((p, i) => (
-                  <div key={i} style={{ marginBottom: 4 }}>
-                    <span style={{ fontSize: 12, color: '#e0e0ee', fontWeight: 600 }}>{p.playerName}</span>
-                    {p.injuryNote && <span style={{ fontSize: 11, color: '#778899', marginLeft: 6 }}>— {p.injuryNote}</span>}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Scouting pick */}
-            {scouting && (
-              <div style={{ marginTop: 10, background: '#0f100a', borderRadius: 6, padding: '10px 12px', border: '1px solid #FFD70028' }}>
-                <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, color: '#FFD700', marginBottom: 6 }}>🌟 SCOUTING DESK</p>
-                <span style={{ fontSize: 12, color: '#e0e0ee', fontWeight: 600 }}>{scouting.playerName} </span>
-                <span style={{ fontSize: 11, color: '#aaaacc' }}>— {scouting.scoutingNote}</span>
-              </div>
-            )}
-          </div>
-        )
-      })}
-    </div>
-  )
+  return <div>
+    <p style={{ color: '#a5aec9', fontSize: 12, marginBottom: 14 }}>{data.season} · Competition totals · <a href={data.sourceUrl} target="_blank" rel="noreferrer" style={{ color: '#aab6ff' }}>Sofascore</a> · — means unreported</p>
+    {teams.map(team => {
+      const keys = [clubNameKey(team.name), clubNameKey(team.shortName)]
+      const players = data.players.filter(player => keys.includes(clubNameKey(player.club)))
+        .sort((a, b) => (valueFor(b, sort) ?? -1) - (valueFor(a, sort) ?? -1) || a.name.localeCompare(b.name))
+      return <section key={team.id} style={{ marginBottom: 20, padding: 12, border: '1px solid #252542', borderRadius: 10 }}>
+        <h2 style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+          <ClubBadge name={team.name} url={team.badgeUrl} fallback={team.fallbackBadgeUrl} /> {team.name}
+        </h2>
+        {!players.length ? <p style={{ color: '#a5aec9' }}>No player totals are available for this club in this competition.</p> :
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, whiteSpace: 'nowrap' }}>
+              <thead><tr><th scope="col" style={{ textAlign: 'left' }}>Player</th>
+                {COLUMNS.map(([metric, label]) => <th scope="col" key={metric} aria-sort={sort === metric ? 'descending' : 'none'}>
+                  <button type="button" onClick={() => setSort(metric)} style={{ padding: '5px 8px', color: sort === metric ? '#aab6ff' : 'inherit' }}>{label}</button>
+                </th>)}
+              </tr></thead>
+              <tbody>{players.map(player => <tr key={player.id} style={{ borderTop: '1px solid #252542' }}>
+                <th scope="row" style={{ textAlign: 'left', padding: '7px 8px 7px 0', fontWeight: 500 }}>{player.name} <small>{player.position}</small></th>
+                {COLUMNS.map(([metric]) => <td key={metric} style={{ textAlign: 'center', padding: '7px 8px' }}>{valueFor(player, metric) ?? '—'}</td>)}
+              </tr>)}</tbody>
+            </table>
+          </div>}
+      </section>
+    })}
+  </div>
 }

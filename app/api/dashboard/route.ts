@@ -3,9 +3,11 @@ import { getAdminDb } from '@/lib/firebase-admin'
 import { TEAMS_SEED } from '@/lib/seed-data'
 import { missingFirebaseConfig } from '@/lib/config'
 import { getLiveDashboard } from '@/lib/live-dashboard'
+import { currentWeekLabel } from '@/lib/utils'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+export const maxDuration = 30
 
 export async function GET(req: NextRequest) {
   const weekLabel = req.nextUrl.searchParams.get('week') ?? ''
@@ -14,9 +16,22 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    if (missingFirebaseConfig().length) {
-      const data = await getLiveDashboard(weekLabel)
-      return NextResponse.json(data, { headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=3600' } })
+    if (weekLabel === currentWeekLabel() || missingFirebaseConfig().length) {
+      const live = getLiveDashboard(currentWeekLabel())
+      const archive = async () => {
+        if (missingFirebaseConfig().length) return null
+        const db = getAdminDb()
+        return Promise.all([
+          db.collection('weeklyDigest').orderBy('generatedAt', 'desc').limit(5).get(),
+          db.collection('userPreferences').doc('ted').get(),
+        ])
+      }
+      const [data, metadata] = await Promise.all([live, archive().catch(() => null)])
+      return NextResponse.json({
+        ...data,
+        prevWeeks: [...new Set([currentWeekLabel(), ...(metadata?.[0].docs.map(doc => doc.id) ?? [])])],
+        selectedTeams: metadata?.[1].data()?.selectedTeams ?? [],
+      }, { headers: { 'Cache-Control': 'private, max-age=0' } })
     }
     const db = getAdminDb()
 
@@ -92,7 +107,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(
       { teams, fixtures, stories, digest, prevWeeks, stats, standings, refresh, selectedTeams: savedSelectedTeams },
-      { headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=3600' } }
+      { headers: { 'Cache-Control': 'private, max-age=0' } }
     )
   } catch (err: any) {
     console.error('[/api/dashboard] Error:', err?.message ?? err)

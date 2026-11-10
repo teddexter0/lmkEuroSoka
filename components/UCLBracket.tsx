@@ -22,13 +22,13 @@ type Tie = {
 }
 
 function scoreStr(leg: Leg) {
-  if (leg.status === 'FT') return `${leg.homeScore ?? '?'}-${leg.awayScore ?? '?'}`
+  if (leg.status === 'FT' || leg.status === 'LIVE') return `${leg.homeScore ?? '?'}-${leg.awayScore ?? '?'}`
   return new Date(leg.date).toLocaleString('en-KE', {
     timeZone: 'Africa/Nairobi', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
   })
 }
 
-export default function UCLBracket() {
+export default function UCLBracket({ league }: { league: 'UCL' | 'UWCL' }) {
   const [ties, setTies] = useState<Tie[]>([])
   const [activeRound, setActiveRound] = useState('League phase')
   const [loading, setLoading] = useState(true)
@@ -36,7 +36,7 @@ export default function UCLBracket() {
 
   useEffect(() => {
     const controller = new AbortController()
-    fetch('/api/ucl', { signal: controller.signal })
+    fetch(`/api/ucl?league=${league}`, { signal: controller.signal })
       .then(async response => {
         const data = await response.json()
         if (!response.ok) throw new Error(data.error || 'Champions League feed unavailable')
@@ -50,13 +50,13 @@ export default function UCLBracket() {
         if (!controller.signal.aborted) setLoading(false)
       })
     return () => controller.abort()
-  }, [])
+  }, [league])
 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 14 }}>
         <h2 style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: 18, fontWeight: 700, color: '#F5C842' }}>
-          ⭐ Champions League
+          {league === 'UWCL' ? 'Women’s Champions League' : 'Champions League'}
         </h2>
         <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, color: '#666688', textAlign: 'right' }}>{activeRound}</span>
       </div>

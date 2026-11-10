@@ -36,7 +36,7 @@ export async function fetchSportsDbStandings():Promise<Record<string,StandingRow
   const season=seasonLabel()
   const results=await Promise.allSettled(Object.entries(LEAGUES).filter(([league])=>league!=='UCL').map(async([league,id])=>{
     const data=await sportsDb(`lookuptable.php?l=${id}&s=${season}`)
-    const rows=(data.table || []).map((row:any,index:number)=>({rank:Number(row.intRank)||index+1,team:row.strTeam,teamId:teamId(row.strTeam),pts:Number(row.intPoints),
+    const rows=(data.table || []).map((row:any,index:number)=>({rank:Number(row.intRank)||index+1,team:row.strTeam,teamId:teamId(row.strTeam),badgeUrl:row.strBadge || '',pts:Number(row.intPoints),
       w:Number(row.intWin),d:Number(row.intDraw),l:Number(row.intLoss),gd:String(row.intGoalDifference || '0'),form:String(row.strForm || '').replace(/[^WDL]/g,'').slice(-5),
       isUserClub:false,isTopFour:index<4,isRelegation:index>=(data.table?.length || 0)-3,isWatch:false}))
     return [league,rows] as const

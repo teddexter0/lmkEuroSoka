@@ -3,11 +3,11 @@
 interface Props { items: string[] }
 
 export default function HumorSection({ items }: Props) {
-  if (!items.length) return null
+  if (!items.length) return <p style={{ padding: 20, color: '#a5aec9' }}>No standout scorelines for the roast this week.</p>
   return (
     <div>
       <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, color: '#444466', letterSpacing: '0.12em', marginBottom: 12 }}>
-        😭 THIS WEEK IN FOOTBALL
+        The week in football
       </p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {items.map((item, i) => (
