@@ -84,7 +84,7 @@ export default function StoryCard({ story, teams, defaultOpen = false }: Props) 
           </div>
           {!!story.signals?.length && <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
             {story.signals.map(signal => <div key={signal.url} style={{ background: '#111128', borderRadius: 6, padding: 10 }}>
-              <p style={{ fontSize: 11, color: '#aab6ff' }}>{signal.label} · {signal.source}</p>
+              <p style={{ fontSize: 11, color: '#aab6ff' }}>{signal.label} · {signal.source}{signal.publishedAt && ` · ${new Date(signal.publishedAt).toLocaleDateString('en-KE', { timeZone: 'Africa/Nairobi', day: 'numeric', month: 'short' })}`}</p>
               <a href={signal.url} target="_blank" rel="noreferrer" style={{ fontSize: 13, color: '#e0e0ee' }}>{signal.title}</a>
             </div>)}
           </div>}

@@ -1,28 +1,16 @@
 'use client'
 
-interface Props { items: string[] }
-
-export default function HumorSection({ items }: Props) {
-  if (!items.length) return <p style={{ padding: 20, color: '#a5aec9' }}>No verified late twists or big comebacks surfaced this week.</p>
-  return (
-    <div>
-      <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, color: '#444466', letterSpacing: '0.12em', marginBottom: 12 }}>
-        The week in football
-      </p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {items.map((item, i) => (
-          <div key={i} style={{
-            background: '#0a0a14', border: '1px solid #1c1c2e',
-            borderRadius: 8, padding: '14px 16px',
-            borderLeft: '3px solid #444466',
-          }}>
-            <p style={{ fontSize: 14, color: '#c0c0d8', lineHeight: 1.65 }}>{item}</p>
-          </div>
-        ))}
-      </div>
-      <p style={{ fontSize: 11, color: '#333355', marginTop: 14, fontStyle: 'italic', textAlign: 'center' }}>
-        * No clubs were harmed in the making of this section.
-      </p>
-    </div>
-  )
+export default function HumorSection({ items }: { items: Array<{ line: string; sourceUrl?: string }> }) {
+  return <section className="desk-section" aria-label="Football humor">
+    <div className="desk-heading"><div><p className="desk-kicker">THE LIGHTER SIDE</p><h2>The week in football</h2></div></div>
+    <p className="desk-muted">The comebacks, late goals and score swings that gave us something to laugh about.</p>
+    {items.length ? <div className="desk-stack">{items.map(({ line, sourceUrl }) => {
+      const split = line.indexOf(' · ')
+      return <article className="desk-card" key={line}>
+        {split !== -1 && <h3>{line.slice(0, split)}</h3>}
+        <p>{split === -1 ? line : line.slice(split + 3)}</p>
+        {sourceUrl && <a className="desk-link" href={sourceUrl} target="_blank" rel="noreferrer">See the match ↗</a>}
+      </article>
+    })}</div> : <p className="desk-status">No verified late twists or big comebacks surfaced this week.</p>}
+  </section>
 }

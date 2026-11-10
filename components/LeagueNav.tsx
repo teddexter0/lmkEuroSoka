@@ -18,6 +18,7 @@ export default function LeagueNav({ active, onChange }: Props) {
         return (
           <button
             key={l}
+            aria-pressed={isActive}
             onClick={() => onChange(l)}
             style={{
               display: 'flex', alignItems: 'center', gap: 6,

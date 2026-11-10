@@ -72,6 +72,7 @@ export default function GolazoPanel() {
                 </span>
               )}
             </div>
+            <a className="desk-link" href={`https://www.youtube.com/watch?v=${video.videoId}`} target="_blank" rel="noreferrer">Watch on YouTube ↗</a>
             {video.viewsPerHour != null && <p style={{ color: '#aab6ff', fontSize: 12, marginTop: 6 }}>
               Top detected clip in the last 16h · {Math.round(video.viewsPerHour).toLocaleString()} views/hour since upload
             </p>}

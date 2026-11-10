@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
   for (const article of articles) {
     const label = signalFor(article.title)
     if (!label || signals.some(signal => signal.label === label) || /how to watch|live stream|ticket|betting|odds|highlights/i.test(article.title)) continue
-    signals.push({ label, title: article.title, url: article.url, source: article.source })
+    signals.push({ label, title: article.title, url: article.url, source: article.source, publishedAt: article.publishedAt })
     if (signals.length === 4) break
   }
   const won = latest && (latest.homeTeamId === id ? latest.homeScore! > latest.awayScore! : latest.awayScore! > latest.homeScore!)
@@ -50,13 +50,21 @@ export async function GET(request: NextRequest) {
   const placement = row ? `#${row.rank} in this competition with ${row.pts} points from ${row.w + row.d + row.l} matches.` : ''
   const title = latest ? latest.recap || `${scoreline(latest)} · ${outcome}` : next ? `${next.homeName} vs ${next.awayName}` : `${team.name} club desk`
   const decisive = latest && decidingGoal(latest)
+  const above = row && data.standings[league]?.find(entry => entry.rank === row.rank - 1)
+  const tableContext = row && above && above.pts > row.pts
+    ? `${team.name} sit ${above.pts - row.pts} point${above.pts - row.pts === 1 ? '' : 's'} behind ${above.team}, the club immediately above them.`
+    : row && above && above.pts === row.pts ? `${team.name} are level on points with ${above.team}, one place above.` : ''
+  const fixtureContext = next && next.league === league && row
+    ? data.standings[league]?.find(entry => entry.teamId === (next.homeTeamId === id ? next.awayTeamId : next.homeTeamId))
+    : undefined
   const goalNote = decisive && decisive.seconds >= 80 * 60
     ? `Decisive moment · ${decisive.player} ${decisive.after === 0 ? 'equalised' : 'scored the winner'} at ${decisive.clock}.` : ''
   const body = [
     latest && `Last match · ${scoreline(latest)} in ${latest.competition}. ${placement}`.trim(),
     goalNote,
     !latest && placement,
-    next && `Next test · ${next.homeName} vs ${next.awayName} in ${next.competition}, ${toEAT(next.matchDate)} EAT.`,
+    tableContext,
+    next && `Next test · ${next.homeName} vs ${next.awayName} in ${next.competition}, ${toEAT(next.matchDate)} EAT.${fixtureContext ? ` ${fixtureContext.team} are #${fixtureContext.rank} on ${fixtureContext.pts} points.` : ''}`,
   ].filter(Boolean).join('\n\n')
   const matchSources = [...previous.reverse(), next].flatMap(f => f?.sourceUrl
     ? [{ source: 'ESPN', title: f.status === 'final' ? scoreline(f) : `${f.homeName} vs ${f.awayName}`, url: f.sourceUrl, publishedAt: '' }]

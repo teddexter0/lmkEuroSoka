@@ -40,6 +40,8 @@ export interface Fixture {
   awayBadgeUrl?: string
   round?: string
   recap?: string
+  venue?: string
+  matchClock?: string
   goals?: Array<{ teamId: string; player: string; clock: string; seconds: number }>
   sourceUrl?: string
   watchReason?: string
@@ -67,7 +69,7 @@ export interface Story {
   druryQuote: string
   body: string
   statsJson: string[]
-  signals?: Array<{ label: string; title: string; url: string; source: string }>
+  signals?: Array<{ label: string; title: string; url: string; source: string; publishedAt?: string }>
   weekLabel: string
   isActive: boolean
   sources?: Array<{ title: string; url: string; source: string; publishedAt: string }>
@@ -123,6 +125,9 @@ export interface StandingRow {
   d: number
   l: number
   gd: string
+  gf?: number
+  ga?: number
+  zone?: string
   form: string
   isUserClub: boolean
   isTopFour: boolean

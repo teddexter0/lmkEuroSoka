@@ -91,3 +91,79 @@ h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; }
     z-index: 100; padding-bottom: env(safe-area-inset-bottom);
   }
 }
+
+/* Match centre and stats desk */
+.desk-section, .desk-stack { display: grid; gap: 12px; min-width: 0; }
+.desk-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 10px; margin: 4px 0; }
+.desk-heading h2 { font-size: clamp(22px, 4vw, 31px); line-height: 1.14; font-weight: 700; }
+.desk-kicker { color: #aab8ff; font-size: 11px; font-weight: 700; letter-spacing: .11em; margin-bottom: 5px; }
+.desk-muted, .desk-meta { color: #acb3ce; font-size: 13px; }
+.desk-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 9px 16px; }
+.desk-meta a, .desk-link { color: #bdc7ff; text-decoration: underline; text-underline-offset: .18em; }
+.desk-segments, .desk-controls, .desk-pagination { display: flex; align-items: end; flex-wrap: wrap; gap: 7px; }
+.desk-segments { padding: 3px 0; margin: 3px 0 8px; }
+.desk-controls { padding: 10px; background: #101022; border: 1px solid #272744; border-radius: 9px; }
+.desk-controls label { display: grid; gap: 4px; min-width: 112px; flex: 1 1 128px; color: #bbc3dd; font-size: 12px; }
+.desk-controls input, .desk-controls select, .desk-segments button, .desk-controls button,
+.desk-pagination button, .desk-meta button, .desk-status button, .desk-table button {
+  border: 1px solid #3c4263; border-radius: 7px; background: #15172c; color: #e5e9ff;
+  min-height: 36px; padding: 6px 10px; font-size: 13px; line-height: 1.2;
+}
+.desk-controls select, .desk-controls input { width: 100%; min-width: 0; }
+.desk-segments button[aria-pressed="true"], .desk-controls button[aria-pressed="true"], .desk-table button[aria-pressed="true"] {
+  background: #292b57; border-color: #9faaff; color: #fff;
+}
+.desk-segments button small { margin-left: 4px; color: #bbc6ff; }
+.desk-pagination { justify-content: space-between; color: #b8c0de; font-size: 13px; }
+.desk-pagination button:disabled { opacity: .45; cursor: default; }
+.desk-status { padding: 20px 12px; color: #bdc5e1; background: #0e1020; border: 1px solid #272744; border-radius: 8px; }
+.desk-table-wrap { overflow-x: auto; border: 1px solid #292b46; border-radius: 9px; }
+.desk-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; text-align: center; }
+.desk-table td, .desk-table th { border-bottom: 1px solid #242642; padding: 9px 10px; white-space: nowrap; }
+.desk-table thead th { background: #171a32; }
+.desk-table tbody tr { background: #101123; }
+.desk-table tbody tr:nth-child(even) { background: #14162b; }
+.desk-table tbody tr[data-followed] { background: #1c2140; }
+.desk-table :is(th, td):first-child { position: sticky; left: 0; z-index: 1; min-width: 44px; width: 44px; padding-inline: 4px; }
+.desk-table :is(th, td):nth-child(2) { position: sticky; left: 44px; z-index: 1; text-align: left; min-width: 156px; box-shadow: 5px 0 9px #0004; }
+.desk-table tbody :is(th, td):nth-child(-n+2) { background: inherit; }
+.desk-table button { min-height: 28px; padding: 4px 6px; background: transparent; }
+.desk-table th[aria-sort] button, .desk-sort-value { color: #c7d0ff; font-weight: 750; }
+.desk-player { display: flex; align-items: center; gap: 8px; text-align: left; }
+.desk-player small { display: block; color: #aeb8d8; font-weight: 400; }
+.desk-table .zone-ucl td:first-child { box-shadow: inset 3px 0 #45dd9c; }
+.desk-table .zone-euro td:first-child { box-shadow: inset 3px 0 #71c6ff; }
+.desk-table .zone-rel td:first-child { box-shadow: inset 3px 0 #fa779c; }
+.desk-leaders { display: grid; grid-template-columns: repeat(auto-fit, minmax(156px, 1fr)); gap: 8px; }
+.desk-card { display: grid; gap: 6px; padding: 12px 14px; background: #111326; border: 1px solid #272744; border-radius: 9px; }
+.desk-card h3, .desk-match-day h3 { color: #e5e9ff; font-weight: 700; }
+.desk-match-day h3 { margin: 7px 0; }
+.desk-match { border: 1px solid #272744; background: #101225; border-radius: 9px; overflow: hidden; }
+.desk-match summary { display: grid; grid-template-columns: minmax(0, 1fr) 72px minmax(0, 1fr) 12px; align-items: center; gap: 8px; padding: 10px; cursor: pointer; list-style: none; }
+.desk-match summary::-webkit-details-marker { display: none; }
+.desk-match[open] summary { background: #171a33; }
+.desk-match-team { display: flex; align-items: center; gap: 6px; font-weight: 650; font-size: 13px; line-height: 1.22; }
+.desk-match-team.home { justify-content: end; text-align: right; }
+.desk-match-score { text-align: center; font-variant-numeric: tabular-nums; color: #f5f6ff; }
+.desk-match-score small { display: block; font-size: 10px; font-weight: 700; color: #a8b5da; }
+.desk-match-score .desk-live { color: #52e5a6; }
+.desk-match-body { display: grid; gap: 10px; border-top: 1px solid #272744; padding: 12px 14px; }
+.desk-tag { border-radius: 5px; padding: 2px 6px; background: #262e56; color: #c7d1ff; }
+.desk-goals { list-style: none; display: grid; gap: 4px; padding: 0; }
+.desk-goals li { display: grid; grid-template-columns: 50px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 5px 0; border-bottom: 1px solid #292c48; }
+.desk-goals time, .desk-goals small { color: #bbc4e1; }
+.desk-section :focus-visible, .desk-match :focus-visible, .desk-segments :focus-visible { outline: 2px solid #aebaff; outline-offset: 2px; }
+@media (max-width: 540px) {
+  .desk-table td, .desk-table th { padding-inline: 7px; }
+  .desk-table :is(th, td):nth-child(2) { min-width: 136px; max-width: 160px; white-space: normal; }
+  .desk-match summary { grid-template-columns: minmax(0, 1fr) 54px minmax(0, 1fr) 10px; gap: 5px; padding-inline: 7px; }
+  .desk-match-team { font-size: 12px; }
+  .desk-goals li { grid-template-columns: 42px minmax(0, 1fr) auto; }
+}
+.desk-leader { text-align: left; color: #e5e9ff; }
+.desk-leader:hover { border-color: #9da9f4; }
+.desk-leader small, .desk-leader span { color: #aab7df; font-size: 12px; }
+.desk-comparison { display: grid; gap: 3px; font-size: 12px; color: #b7c1df; }
+.desk-comparison div { display: flex; justify-content: space-between; gap: 8px; }
+.desk-comparison dd { color: #e2e7ff; font-weight: 700; }
+.desk-match[data-followed] { border-color: #505b92; }

@@ -89,7 +89,7 @@ export async function getSeasonPlayers(league: League, year: number, clubId?: st
     throw new Error('No ESPN club player feeds were available')
   }
   return {
-    players, season: `${year}/${String(year + 1).slice(-2)}`, source: 'ESPN',
+    players, failedClubIds: ids.filter((_, index) => clubs[index].status === 'rejected'), season: `${year}/${String(year + 1).slice(-2)}`, source: 'ESPN',
     sourceUrl: clubId ? `https://www.espn.com/soccer/team/stats/_/id/${clubId}/league/${COMPETITIONS[league].espn}`
       : `https://www.espn.com/soccer/stats/_/league/${COMPETITIONS[league].espn}`,
   }

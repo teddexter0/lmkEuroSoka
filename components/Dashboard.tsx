@@ -1,9 +1,9 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { Team, Fixture, Story, WeeklyDigest, StandingRow } from '@/types'
 import { isWomen, isEuropeanCup } from '@/lib/competitions'
 import { LEAGUE_THEMES } from '@/lib/utils'
-import { curateFixtures, fixturePins, fixtureShortlist, footballHumor } from '@/lib/curation'
+import { curateFixtures, fixturePins, fixtureShortlist, footballHumor, scoreline } from '@/lib/curation'
 import StoriesPanel from './StoriesPanel'
 
 import LeagueNav       from './LeagueNav'
@@ -15,14 +15,15 @@ import PinnedFixtures  from './PinnedFixtures'
 import HistoryTicker   from './HistoryTicker'
 import TeamSelector    from './TeamSelector'
 import HumorSection    from './HumorSection'
-import GolazoPanel     from './GolazoPanel'
-import UCLBracket      from './UCLBracket'
+import EuropeanCentre from './EuropeanCentre'
+import MatchCentre from './MatchCentre'
 
 type Tab = 'FIXTURES' | 'STORIES' | 'STATS' | 'TABLE' | 'UCL' | 'HUMOR'
 const TABS: Tab[] = ['FIXTURES', 'STORIES', 'STATS', 'TABLE', 'UCL', 'HUMOR']
 
 export default function Dashboard({ initialWeekLabel }: { initialWeekLabel: string }) {
   const [activeLeague, setActiveLeague]   = useState('EPL')
+  const [matchView, setMatchView] = useState<'Briefing' | 'Match centre'>('Briefing')
   const [activeTab, setActiveTab]         = useState<Tab>('FIXTURES')
   const [weekLabel, setWeekLabel]         = useState(initialWeekLabel)
   const [prevWeeks, setPrevWeeks]         = useState<string[]>([])
@@ -34,6 +35,7 @@ export default function Dashboard({ initialWeekLabel }: { initialWeekLabel: stri
   const [digest, setDigest]       = useState<WeeklyDigest | null>(null)
   const DEFAULT_SELECTED = ['MUN','BAR','ARS','MCI','LFC','CFC','TOT','NEW','FUL','BRI','BOU','CRY','ATM','RMA','PSG','BMU','BVB','LEV','INT','ACM','JUV','ASM']
   const [selected, setSelected]   = useState<string[]>(DEFAULT_SELECTED)
+  const loadedWeek = useRef('')
   const [loading, setLoading]     = useState(true)
   const [error, setError]         = useState('')
   const [reloadToken, setReloadToken] = useState(0)
@@ -45,12 +47,14 @@ export default function Dashboard({ initialWeekLabel }: { initialWeekLabel: stri
   // Load all data
   useEffect(() => {
     const controller = new AbortController()
-    setLoading(true)
+    if (loadedWeek.current !== weekLabel) setLoading(true)
     setError('')
     fetch(`/api/dashboard?week=${encodeURIComponent(weekLabel)}`, { signal: controller.signal })
       .then(async r => {
         const data = await r.json()
         if (!r.ok) throw new Error(data.error || 'Dashboard refresh failed')
+        if (controller.signal.aborted) return
+        loadedWeek.current = weekLabel
         setTeams(data.teams ?? [])
         setFixtures((data.fixtures ?? []).map((f: any) => ({
           ...f,
@@ -87,12 +91,21 @@ export default function Dashboard({ initialWeekLabel }: { initialWeekLabel: stri
   }
 
   const current = weekLabel === initialWeekLabel
+  const autoRefresh = current && (activeTab === 'FIXTURES' || activeTab === 'UCL')
+  useEffect(() => {
+    if (!autoRefresh) return
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') setReloadToken(value => value + 1)
+    }, 120_000)
+    return () => window.clearInterval(timer)
+  }, [autoRefresh])
   const competitionClubs = new Set([
     ...(standings[activeLeague] ?? []).map(row => row.teamId),
     ...fixtures.filter(fixture => fixture.league === activeLeague).flatMap(f => [f.homeTeamId, f.awayTeamId]),
   ])
-  const followedClubs = teams.filter(team => selected.includes(team.id) &&
-    (team.league === activeLeague || competitionClubs.has(team.id)))
+  const leagueClubs = teams.filter(team => competitionClubs.has(team.id) || (!competitionClubs.size && team.league === activeLeague))
+  const followedClubs = leagueClubs.filter(team => selected.includes(team.id))
+  const leagueFixtures = fixtures.filter(match => match.league === activeLeague)
   const now = Date.now()
   const curated = current ? curateFixtures(fixtures, standings, selected, now) : []
   const shortlist = fixtureShortlist(curated)
@@ -171,6 +184,7 @@ export default function Dashboard({ initialWeekLabel }: { initialWeekLabel: stri
           {TABS.map(tab => (
             <button
               key={tab}
+              aria-pressed={activeTab === tab}
               onClick={() => setActiveTab(tab)}
               style={{
                 padding: '10px 16px', border: 'none', background: 'transparent',
@@ -204,6 +218,11 @@ export default function Dashboard({ initialWeekLabel }: { initialWeekLabel: stri
 
           {activeTab === 'FIXTURES' && (
             <div>
+              {current && <div className="desk-segments" aria-label="Fixtures view">
+                {(['Briefing', 'Match centre'] as const).map(view => <button key={view} aria-pressed={matchView === view} onClick={() => setMatchView(view)}>{view}</button>)}
+              </div>}
+              {current && matchView === 'Match centre' ? <MatchCentre key={activeLeague} league={activeLeague} fixtures={leagueFixtures}
+                selected={selected} incomplete={unavailableSchedules.includes(activeLeague)} /> : <>
               {current && <>
                 <h2 style={{ fontSize: 20, margin: '4px 0 2px' }}>Your next 7 days</h2>
                 <p style={{ fontSize: 13, color: '#a5aec9', marginBottom: 8 }}>Across Europe · followed clubs, rivalries and matches with stakes · EAT</p>
@@ -223,11 +242,12 @@ export default function Dashboard({ initialWeekLabel }: { initialWeekLabel: stri
                 <h2 style={{ fontSize: 16, margin: '20px 0 10px' }}>Recent results for your clubs</h2>
                 <FixtureList fixtures={recentResults} activeLeague={activeLeague} selectedTeams={selected} curated />
               </>}
+              </>}
             </div>
           )}
 
           {activeTab === 'STORIES' && (current
-            ? <StoriesPanel teams={followedClubs} league={activeLeague} />
+            ? <StoriesPanel key={activeLeague} teams={followedClubs} league={activeLeague} />
             : <div style={{ display: 'grid', gap: 12 }}>
                 {stories.filter(story => story.league === activeLeague && selected.includes(story.teamId))
                   .map(story => <StoryCard key={story.id} story={story} teams={teams} />)}
@@ -236,26 +256,26 @@ export default function Dashboard({ initialWeekLabel }: { initialWeekLabel: stri
               </div>)}
 
           {activeTab === 'STATS' && (current
-            ? <PlayerStatsPanel key={activeLeague} league={activeLeague} teams={followedClubs} />
+            ? <PlayerStatsPanel key={activeLeague} league={activeLeague} teams={leagueClubs} followed={followedClubs} />
             : <p style={{ padding: 20 }}>Season player totals are available in the current dashboard.</p>)}
 
           {/* TABLE TAB */}
           {activeTab === 'TABLE' && (
-            <StandingsTable activeLeague={activeLeague} rows={standings[activeLeague] ?? []} selectedTeams={selected} />
+            <StandingsTable key={activeLeague} activeLeague={activeLeague} rows={standings[activeLeague] ?? []} selectedTeams={selected} />
           )}
 
           {/* UCL TAB */}
           {activeTab === 'UCL' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <UCLBracket key={activeLeague === "UWCL" ? "UWCL" : "UCL"} league={activeLeague === "UWCL" ? "UWCL" : "UCL"} />
-              <GolazoPanel />
-            </div>
+            <EuropeanCentre key={activeLeague} initialLeague={activeLeague === 'UWCL' ? 'UWCL' : 'UCL'}
+              fixtures={fixtures} standings={standings} selected={selected} incomplete={unavailableSchedules} />
           )}
 
           {/* HUMOR TAB */}
           {activeTab === 'HUMOR' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <HumorSection items={current ? footballHumor(fixtures, selected) : (digest?.humorItems ?? []).filter(item => !item.includes("several group chats needing moderation"))} />
+              <HumorSection items={current ? footballHumor(fixtures, selected).map(line => ({
+                line, sourceUrl: fixtures.find(match => line.startsWith(scoreline(match) + ' ·'))?.sourceUrl,
+              })) : (digest?.humorItems ?? []).filter(item => !item.includes("several group chats needing moderation")).map(line => ({ line }))} />
             </div>
           )}
 

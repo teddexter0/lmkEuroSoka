@@ -62,22 +62,23 @@ function dateKey(time: number) {
   }).format(new Date(time)).replace(/-/g, '')
 }
 
-export async function fetchEspnFixtures(league: League, weekLabel: string) {
+export async function fetchEspnFixtures(league: League, weekLabel: string, start?: number) {
   const now = Date.now()
+  const anchor = start ?? now
   // ESPN's soccer feed rejects date ranges. A daily URL also lets overlapping weeks share cached responses.
   const base = `${SITE}/${COMPETITIONS[league].espn}/scoreboard`
   const getDays = (start: number, count: number) => Promise.allSettled(Array.from({ length: count }, async (_, index) => {
     const offset = start + index
-    const date = dateKey(now + offset * DAY)
-    const data = await json(`${base}?dates=${date}`, offset === 0 ? 300 : 1800)
+    const date = dateKey(anchor + offset * DAY)
+    const data = await json(`${base}?dates=${date}`, date === dateKey(now) ? 90 : 1800)
     if (!Array.isArray(data.events)) throw new Error('ESPN fixture feed has no events array')
     return data
   }))
-  const recentAndNext = await getDays(-7, 16)
+  const recentAndNext = await (start == null ? getDays(-7, 16) : getDays(0, 7))
   const feeds = recentAndNext.flatMap(result => result.status === 'fulfilled' ? [result.value] : [])
   const partial = feeds.length < recentAndNext.length
   // Look past an international break or a gap between cup rounds only when the near-term schedule is empty.
-  if (feeds.length && !feeds.some(feed => feed.events.some((event: any) =>
+  if (start == null && feeds.length && !feeds.some(feed => feed.events.some((event: any) =>
     Date.parse(event.date) > now && event.competitions?.[0]?.status?.type?.state === 'pre' &&
     !/CANCEL|POSTPON|SUSPEND|ABANDON|TBD/i.test(event.competitions[0].status.type.name || '')))) {
     const extended = await getDays(9, 6)
@@ -95,6 +96,7 @@ export async function fetchEspnFixtures(league: League, weekLabel: string) {
     const away = match?.competitors?.find((entry: any) => entry.homeAway === 'away')
     const matchDate = new Date(event.date)
     if (!home?.team?.id || !away?.team?.id || !Number.isFinite(+matchDate) ||
+        (start != null && (+matchDate < start || +matchDate >= start + 7 * DAY)) ||
         !['pre', 'in', 'post'].includes(status?.state) ||
         /CANCEL|POSTPON|SUSPEND|ABANDON|DELAY|TBD|FORFEIT/i.test(status.name || '')) continue
     const h = teamFrom(home.team, league)
@@ -123,12 +125,14 @@ export async function fetchEspnFixtures(league: League, weekLabel: string) {
       round: match.series?.title || match.notes?.[0]?.headline,
       recap: recap?.shortLinkText || recap?.description,
       goals,
+      venue: match.venue?.fullName,
+      matchClock: status.state === 'in' ? match.status?.displayClock : undefined,
       sourceUrl: `https://www.espn.com/soccer/match/_/gameId/${event.id}`,
       tier: 'watch', winProbHome: 0, winProbAway: 0, winProbDraw: 0, preview: '',
       refereeName: '', refereeNote: '', isDerby: false, isPinned: false, weekLabel,
     })
   }
-  return { fixtures, teams: [...clubs.values()], partial }
+  return { fixtures: fixtures.sort((a, b) => +a.matchDate - +b.matchDate), teams: [...clubs.values()], partial }
 }
 
 export async function fetchEspnTable(league: League) {
@@ -147,6 +151,7 @@ export async function fetchEspnTable(league: League) {
       rank, teamId: team.id, team: team.name, badgeUrl: team.badgeUrl, fallbackBadgeUrl: team.fallbackBadgeUrl,
       pts: stat('points').value, w: stat('wins').value, d: stat('ties').value, l: stat('losses').value,
       gd: stat('pointDifferential').displayValue ?? String(stat('pointDifferential').value),
+      gf: stat('pointsFor')?.value, ga: stat('pointsAgainst')?.value, zone: entry.note?.description,
       form: '', isUserClub: false, isTopFour: entry.note?.description === 'Champions League',
       isRelegation: entry.note?.description === 'Relegation', isWatch: false,
     })
