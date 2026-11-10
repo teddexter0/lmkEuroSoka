@@ -97,6 +97,7 @@ export function footballHumor(fixtures: Fixture[], selected: string[], now = Dat
     .sort((a, b) => Number([b.homeTeamId, b.awayTeamId].some(id => selected.includes(id))) -
       Number([a.homeTeamId, a.awayTeamId].some(id => selected.includes(id))) || +b.matchDate - +a.matchDate)
   const lines: string[] = []
+  const used = new Set<string>()
   for (const match of finals) {
     const timeline = goalTimeline(match)
     if (!timeline.length) continue
@@ -104,12 +105,21 @@ export function footballHumor(fixtures: Fixture[], selected: string[], now = Dat
     const homeBehindTwice = timeline.filter(goal => goal.after === -2 && goal.before === -1).length >= 2
     const awayBehindTwice = timeline.filter(goal => goal.after === 2 && goal.before === 1).length >= 2
     const team = homeBehindTwice ? match.homeName : match.awayName
-    if (match.homeScore === match.awayScore && (homeBehindTwice || awayBehindTwice)) {
+    const late = deciding && deciding.seconds >= 89 * 60 ? deciding : undefined
+    const comeback = late && late.after !== 0 && timeline.some(goal => Math.sign(goal.after) === -Math.sign(late.after))
+    const kind = match.homeScore === match.awayScore && (homeBehindTwice || awayBehindTwice) ? 'double-comeback'
+      : comeback ? 'late-comeback' : late?.after === 0 ? 'late-equaliser' : late ? 'late-winner' : ''
+    if (!kind || used.has(kind)) continue
+    used.add(kind)
+    if (kind === 'double-comeback') {
       lines.push(`${scoreline(match)} · ${team} went two down, got back into it, then went two down again. Apparently the first comeback was a rehearsal.`)
-    } else if (deciding && deciding.seconds >= 89 * 60 && deciding.after !== 0) {
-      lines.push(`${scoreline(match)} · ${deciding.player} made it ${deciding.home}–${deciding.away} at ${deciding.clock}. Anyone who left to beat traffic got a different result.`)
-    } else if (deciding && deciding.seconds >= 89 * 60 && deciding.after === 0) {
-      lines.push(`${scoreline(match)} · ${deciding.player} equalised at ${deciding.clock}. The post-match victory draft can go back in drafts.`)
+    } else if (late && kind === 'late-comeback') {
+      const winner = late.after > 0 ? match.homeName : match.awayName
+      lines.push(`${scoreline(match)} · ${winner} trailed before ${late.player} won it at ${late.clock}. Talk about leaving the entire assignment until the deadline.`)
+    } else if (late && kind === 'late-equaliser') {
+      lines.push(`${scoreline(match)} · ${late.player} equalised at ${late.clock}. The victory post can go back in drafts.`)
+    } else if (late) {
+      lines.push(`${scoreline(match)} · ${late.player} made it ${late.home}–${late.away} at ${late.clock}. Anyone who left to beat traffic got a different result.`)
     }
     if (lines.length >= 4) break
   }
